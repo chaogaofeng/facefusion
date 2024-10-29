@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 from starlette.websockets import WebSocketDisconnect
 
-from facefusion import logger
+from facefusion import logger, state_manager
 from facefusion.audio import create_empty_audio_frame
 from facefusion.face_analyser import get_many_faces, get_average_face
 from facefusion.processors.core import get_processors_modules
@@ -20,6 +20,8 @@ executor = None
 
 def process_frame(frame_data, source_face=None, background_frame=None, beautify=True):
 	start_time = time.time()
+
+	print(state_manager.get_item('face_selector_mode'), "====")
 
 	processors = []
 	if beautify:
@@ -44,7 +46,7 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 	# YUV_420_888
 	# YUV_422_888
 	# YUV_444_888
-
+	frame_index = frame_data.get('frameIndex', 0)
 	image_bytes = frame_data['data']
 	np_img = np.frombuffer(image_bytes, np.uint8)
 	target_vision_frame = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
@@ -64,7 +66,7 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 				})
 		logger.enable()
 		e = time.time()
-		logger.info(f"processor: {processors[i]}, processing time: {e - t:.4f} seconds",
+		logger.info(f"{frame_index}: processor {processors[i]}, processing time: {e - t:.4f} seconds",
 					__name__)  # 打印处理时间
 		i +=1
 
@@ -72,14 +74,14 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 		t = time.time()
 		target_vision_frame = merge_images(target_vision_frame, background_frame)
 		e = time.time()
-		logger.info(f"processor: background, processing time: {e - t:.4f} seconds",
+		logger.info(f"{frame_index}: processor background, processing time: {e - t:.4f} seconds",
 					__name__)  # 打印处理时间
 
 	_, img_encoded = cv2.imencode('.jpg', target_vision_frame)
 
 	end_time = time.time()
 	processing_time = end_time - start_time
-	logger.info(f"processors:{processors} processing time: {end_time - start_time:.4f} seconds", __name__)  # 打印处理时间
+	logger.info(f"{frame_index}: processors {processors}, processing time: {end_time - start_time:.4f} seconds", __name__)  # 打印处理时间
 	return BytesIO(img_encoded.tobytes()), processing_time
 
 
@@ -151,7 +153,7 @@ def create_app(max_workers):
 
 		# 有序字典用于保存处理后的帧数据
 		results = OrderedDict()
-		next_id_to_send = 0
+		next_id_to_send = 1
 
 		# 设置初始参数
 		initial_params_set = False
