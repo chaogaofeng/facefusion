@@ -144,20 +144,61 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
         "height": height,
         "data": image_data,
         "format": format,
+        "length": len(image_data),
         "processing_time": end_time - start_time
     }
 
 
 def merge_images(frame, background_image):
-    # 确保背景图像和主图像都是 RGB 格式
+    # 确保主图像是 RGB 格式
     if len(frame.shape) == 2:  # 如果主图像是灰度图
         frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
 
+    # 检查背景图像的通道数
     if len(background_image.shape) == 2:  # 如果背景图像是灰度图
         background_image = cv2.cvtColor(background_image, cv2.COLOR_GRAY2BGR)
 
-    # 将背景图像调整为与主图像相同的大小
-    background_resized = cv2.resize(background_image, (frame.shape[1], frame.shape[0]))
+    # 获取主图像的通道数
+    frame_channels = frame.shape[2]
+    is_rgba_frame = (frame_channels == 4)
+
+# 调整背景图像的通道数
+    if frame_channels == 3:  # 如果主图像是 RGB（3 通道）
+        if background_image.shape[2] == 4:  # 如果背景是 RGBA（4 通道）
+            background_image = cv2.cvtColor(background_image, cv2.COLOR_RGBA2RGB)  # 转换为 RGB
+        elif background_image.shape[2] != 3:  # 如果背景不是 RGB
+            raise ValueError("Background image must be in RGB or RGBA format.")
+    elif frame_channels == 4:  # 如果主图像是 RGBA（4 通道）
+        if background_image.shape[2] == 3:  # 如果背景是 RGB（3 通道）
+            # 将背景图像转换为 RGBA
+            background_image = cv2.cvtColor(background_image, cv2.COLOR_RGB2RGBA)
+        elif background_image.shape[2] != 4:  # 如果背景不是 RGBA
+            raise ValueError("Background image must be in RGB or RGBA format.")
+
+    # 获取主图像的尺寸
+    frame_height, frame_width = frame.shape[:2]
+
+    # 获取背景图像的尺寸
+    bg_height, bg_width = background_image.shape[:2]
+
+    if bg_height < frame_height and bg_width < frame_width:
+        # 如果背景图像小，则复制背景图像多次
+        # 计算需要的行数和列数
+        rows = (frame_height // bg_height) + 1
+        cols = (frame_width // bg_width) + 1
+
+        # 创建一个足够大的图像以容纳所有背景
+        tiled_background = np.tile(background_image, (rows, cols, 1))
+
+        # 截取与主图像相同大小的区域
+        background_resized = tiled_background[:frame_height, :frame_width]
+
+    else:
+        # 如果背景图像大，则截取部分
+        background_resized = background_image[:frame_height, :frame_width]
+
+    # # 将背景图像调整为与主图像相同的大小
+    # background_resized = cv2.resize(background_image, (frame.shape[1], frame.shape[0]))
 
     # 确保两幅图像都具有相同的通道数
     if frame.shape[2] != background_resized.shape[2]:
@@ -168,6 +209,13 @@ def merge_images(frame, background_image):
     beta = 0.3  # 背景图像的透明度
     combined_image = cv2.addWeighted(frame, alpha, background_resized, beta, 0)
 
+    # 确保返回的图像格式与主图像格式一致
+    if is_rgba_frame:
+        # 如果原图是 RGBA，则将合并结果转换为 RGBA
+        combined_image = cv2.cvtColor(combined_image, cv2.COLOR_RGB2RGBA)
+    else:
+        # 如果原图是 RGB，则确保结果是 RGB
+        combined_image = cv2.cvtColor(combined_image, cv2.COLOR_BGR2RGB)
     return combined_image
 
 
@@ -189,6 +237,10 @@ def create_app(max_workers):
         # 获取待处理图像
         image_bytes = await image.read()  # 读取图像字节
         frame_data['data'] = image_bytes
+        frame_format = identify_image_format(image_bytes)
+        frame_data['frame_format'] = frame_format
+        frame_data['width'] = 0
+        frame_data['height'] = 0
 
         # 获取待替换人脸图像
         source_face = None
@@ -207,10 +259,10 @@ def create_app(max_workers):
             background_frame = convert_to_bitmap(0, 0, image_format, image_bytes)
 
         future = executor.submit(process_frame, frame_data, source_face, background_frame, beautify)
-        processed_frame, processing_time = await asyncio.wrap_future(future)
+        processed_frame = await asyncio.wrap_future(future)
 
-
-        return StreamingResponse(processed_frame, media_type='image/jpeg')
+        _, img_encoded = cv2.imencode(f'.{frame_format}', processed_frame['data'])
+        return StreamingResponse(processed_frame, media_type=f'image/{frame_format}')
 
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket):
