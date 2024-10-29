@@ -62,8 +62,8 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 				})
 		logger.enable()
 
-	if target_vision_frame and background_frame is not None:
-		processed_frame = merge_images(target_vision_frame, background_frame)
+	if background_frame is not None:
+		target_vision_frame = merge_images(target_vision_frame, background_frame)
 
 	_, img_encoded = cv2.imencode('.jpg', target_vision_frame)
 
