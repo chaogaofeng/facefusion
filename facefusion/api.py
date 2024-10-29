@@ -18,7 +18,7 @@ from facefusion.processors.core import get_processors_modules
 executor = None
 
 
-async def process_frame(frame_data, source_face=None, background_frame=None, beautify=True):
+def process_frame(frame_data, source_face=None, background_frame=None, beautify=True):
 	start_time = time.time()
 
 	processors = []
