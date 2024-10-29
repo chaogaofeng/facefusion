@@ -19,6 +19,8 @@ executor = None
 
 
 async def process_frame(frame_data, source_face=None, background_frame=None, beautify=True):
+	start_time = time.time()
+
 	processors = []
 	if beautify:
 		processors.append('face_enhancer')
@@ -66,7 +68,11 @@ async def process_frame(frame_data, source_face=None, background_frame=None, bea
 		processed_frame = merge_images(processed_frame, background_frame)
 
 	_, img_encoded = cv2.imencode('.jpg', processed_frame)
-	return BytesIO(img_encoded.tobytes())
+
+	end_time = time.time()
+	processing_time = end_time - start_time
+	logger.info(f"Processing time: {end_time - start_time:.4f} seconds", __name__)  # 打印处理时间
+	return BytesIO(img_encoded.tobytes()), processing_time
 
 
 def merge_images(frame, background_image):
@@ -106,6 +112,7 @@ def create_app(max_workers):
 		beautify: bool = Form(True)
 	):
 		frame_data = {}
+
 		# 获取待处理图像
 		image_bytes = image.read()  # 读取图像字节
 		frame_data['data'] = image_bytes
@@ -126,17 +133,9 @@ def create_app(max_workers):
 			np_img = np.frombuffer(image_bytes, np.uint8)
 			background_frame = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
 
-		start_time = time.time()
 		future = executor.submit(process_frame, frame_data, source_face, background_frame, beautify)
-		processed_frame = future.result()
-		end_time = time.time()
-		logger.info(f"Processing time: {end_time - start_time:.4f} seconds", __name__)  # 打印处理时间
-
-		if background_frame is not None:
-			processed_frame = merge_images(processed_frame, background_frame)
-
-		_, img_encoded = cv2.imencode('.jpg', processed_frame)
-		return StreamingResponse(BytesIO(img_encoded.tobytes()), media_type='image/jpeg')
+		processed_frame, processing_time = await asyncio.wrap_future(future)
+		return StreamingResponse(processed_frame, media_type='image/jpeg')
 
 	@app.websocket("/ws")
 	async def websocket_endpoint(websocket: WebSocket):
