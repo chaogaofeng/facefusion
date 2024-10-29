@@ -47,9 +47,8 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 
 	image_bytes = frame_data['data']
 	np_img = np.frombuffer(image_bytes, np.uint8)
-	capture_frame = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
+	target_vision_frame = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
 
-	target_vision_frame = None
 	# 异步执行图像处理
 	source_audio_frame = create_empty_audio_frame()
 	for processor_module in get_processors_modules(processors):
@@ -63,11 +62,10 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 				})
 		logger.enable()
 
-	processed_frame = target_vision_frame
-	if processed_frame and background_frame is not None:
-		processed_frame = merge_images(processed_frame, background_frame)
+	if target_vision_frame and background_frame is not None:
+		processed_frame = merge_images(target_vision_frame, background_frame)
 
-	_, img_encoded = cv2.imencode('.jpg', processed_frame)
+	_, img_encoded = cv2.imencode('.jpg', target_vision_frame)
 
 	end_time = time.time()
 	processing_time = end_time - start_time
