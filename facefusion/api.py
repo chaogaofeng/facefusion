@@ -114,13 +114,13 @@ def create_app(max_workers):
 		frame_data = {}
 
 		# 获取待处理图像
-		image_bytes = image.read()  # 读取图像字节
+		image_bytes = await image.read()  # 读取图像字节
 		frame_data['data'] = image_bytes
 
 		# 获取待替换人脸图像
 		source_face = None
 		if swap:
-			image_bytes = swap.read()  # 读取图像字节
+			image_bytes = await swap.read()  # 读取图像字节
 			np_img = np.frombuffer(image_bytes, np.uint8)
 			source_frame = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
 			source_faces = get_many_faces([source_frame])
@@ -129,7 +129,7 @@ def create_app(max_workers):
 		# 获取背景图像
 		background_frame = None
 		if water:
-			image_bytes = water.read()
+			image_bytes = await water.read()
 			np_img = np.frombuffer(image_bytes, np.uint8)
 			background_frame = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
 
