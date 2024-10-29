@@ -210,6 +210,7 @@ def create_program() -> ArgumentParser:
 	program.add_argument('-v', '--version', version = metadata.get('name') + ' ' + metadata.get('version'), action = 'version')
 	sub_program = program.add_subparsers(dest = 'command')
 	# general
+	sub_program.add_parser('api', help = wording.get('help.api'), parents = [ collect_step_program(), create_uis_program(), collect_job_program() ], formatter_class = create_help_formatter_large)
 	sub_program.add_parser('run', help = wording.get('help.run'), parents = [ collect_step_program(), create_uis_program(), collect_job_program() ], formatter_class = create_help_formatter_large)
 	sub_program.add_parser('headless-run', help = wording.get('help.headless_run'), parents = [ collect_step_program(), collect_job_program() ], formatter_class = create_help_formatter_large)
 	sub_program.add_parser('force-download', help = wording.get('help.force_download'), parents = [ create_log_level_program() ], formatter_class = create_help_formatter_large)

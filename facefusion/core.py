@@ -6,6 +6,7 @@ from time import time
 import numpy
 
 from facefusion import content_analyser, face_classifier, face_detector, face_landmarker, face_masker, face_recognizer, logger, process_manager, state_manager, voice_extractor, wording
+from facefusion.api import create_app
 from facefusion.args import apply_args, collect_job_args, reduce_step_args
 from facefusion.common_helper import get_first
 from facefusion.content_analyser import analyse_image, analyse_video
@@ -57,6 +58,11 @@ def route(args : Args) -> None:
 		hard_exit(error_code)
 	if not pre_check():
 		return conditional_exit(2)
+	if state_manager.get_item('command') == 'api':
+		if not common_pre_check() or not processors_pre_check():
+			return conditional_exit(2)
+		create_app(max_workers=state_manager.get_item('execution_thread_count')).run(host="0.0.0.0", port=5000)
+
 	if state_manager.get_item('command') == 'run':
 		import facefusion.uis.core as ui
 

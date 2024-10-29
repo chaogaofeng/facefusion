@@ -184,6 +184,7 @@ WORDING : Dict[str, Any] =\
 		'skip_download': 'omit downloads and remote lookups',
 		'log_level': 'adjust the message severity displayed in the terminal',
 		# run
+		'api': 'run the program in flask api',
 		'run': 'run the program',
 		'headless_run': 'run the program in headless mode',
 		'force_download': 'force automate downloads and exit',
