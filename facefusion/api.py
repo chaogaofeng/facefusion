@@ -95,7 +95,7 @@ def create_app(max_workers):
 			background_frame = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
 
 		start_time = time.time()
-		future = executor.submit(process_frame, source_face, capture_frame)
+		future = executor.submit(process_frame, source_face, capture_frame, processors)
 		processed_frame = future.result()
 		end_time = time.time()
 		logger.info(f"Processing time: {end_time - start_time:.4f} seconds", __name__)  # 打印处理时间
