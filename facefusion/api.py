@@ -68,7 +68,7 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 		e = time.time()
 		logger.info(f"{frame_index}: processor {processors[i]}, processing time: {e - t:.4f} seconds",
 					__name__)  # 打印处理时间
-		i +=1
+		i += 1
 
 	if background_frame is not None:
 		t = time.time()
@@ -81,7 +81,8 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 
 	end_time = time.time()
 	processing_time = end_time - start_time
-	logger.info(f"{frame_index}: processors {processors}, processing time: {end_time - start_time:.4f} seconds", __name__)  # 打印处理时间
+	logger.info(f"{frame_index}: processors {processors}, processing time: {end_time - start_time:.4f} seconds",
+				__name__)  # 打印处理时间
 	return BytesIO(img_encoded.tobytes()), processing_time
 
 
@@ -113,6 +114,8 @@ def create_app(max_workers):
 
 	global executor
 	executor = ThreadPoolExecutor(max_workers=max_workers if max_workers else 4)  # 控制最大线程数
+
+	state_manager.set_item('face_selector_mode', 'one')
 
 	@app.post('/process_image')
 	async def process_image(
