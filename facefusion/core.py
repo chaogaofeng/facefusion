@@ -4,6 +4,7 @@ import sys
 from time import time
 
 import numpy
+import uvicorn
 
 from facefusion import content_analyser, face_classifier, face_detector, face_landmarker, face_masker, face_recognizer, logger, process_manager, state_manager, voice_extractor, wording
 from facefusion.api import create_app
@@ -61,7 +62,8 @@ def route(args : Args) -> None:
 	if state_manager.get_item('command') == 'api':
 		if not common_pre_check() or not processors_pre_check():
 			return conditional_exit(2)
-		create_app(max_workers=state_manager.get_item('execution_thread_count')).run(host="0.0.0.0", port=5000)
+		app = create_app(max_workers=state_manager.get_item('execution_thread_count'))
+		uvicorn.run(app, host="0.0.0.0", port=5000)
 
 	if state_manager.get_item('command') == 'run':
 		import facefusion.uis.core as ui

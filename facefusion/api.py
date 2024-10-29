@@ -1,10 +1,11 @@
 import time
 
-from flask import Flask, request, send_file, jsonify
+from fastapi import FastAPI, File, UploadFile, Form
+from fastapi.responses import StreamingResponse
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 import cv2
 import numpy as np
-from concurrent.futures import ThreadPoolExecutor
 
 from facefusion import logger
 from facefusion.audio import create_empty_audio_frame
@@ -54,34 +55,32 @@ def merge_images(frame, background_image):
 
 
 def create_app(max_workers):
-	app = Flask(__name__)
+	app = FastAPI()
 
 	global executor
 	executor = ThreadPoolExecutor(max_workers=max_workers if max_workers else 4)  # 控制最大线程数
 
-	@app.route('/process_image', methods=['POST'])
-	def process_image():
-		watermark_file = request.files.get('water', None)
-		swap_file = request.files.get('swap', None)
-		beautify = request.form.get('beautify', 'true').lower() == 'true'  # 获取是否美颜的参数
-
+	@app.post('/process_image')
+	async def process_image(
+		image: UploadFile = File(...),
+		water: UploadFile = File(None),
+		swap: UploadFile = File(None),
+		beautify: bool = Form(True)
+	):
 		processors = []
 		if beautify:
 			processors.append('face_enhancer')
 
-		if 'image' not in request.files:
-			return jsonify({'error': 'no image file provided'}), 400
 		# 获取待处理图像
-		image_file = request.files['image']
-		image_bytes = image_file.read()  # 读取图像字节
+		image_bytes = image.read()  # 读取图像字节
 		np_img = np.frombuffer(image_bytes, np.uint8)
 		capture_frame = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
 
 		# 获取待替换人脸图像
 		source_face = None
-		if swap_file:
+		if swap:
 			processors.append('face_swapper')
-			image_bytes = swap_file.read()  # 读取图像字节
+			image_bytes = swap.read()  # 读取图像字节
 			np_img = np.frombuffer(image_bytes, np.uint8)
 			source_frame = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
 			source_faces = get_many_faces([source_frame])
@@ -89,8 +88,8 @@ def create_app(max_workers):
 
 		# 获取背景图像
 		background_frame = None
-		if watermark_file:
-			image_bytes = watermark_file.read()
+		if water:
+			image_bytes = water.read()
 			np_img = np.frombuffer(image_bytes, np.uint8)
 			background_frame = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
 
@@ -100,10 +99,10 @@ def create_app(max_workers):
 		end_time = time.time()
 		logger.info(f"Processing time: {end_time - start_time:.4f} seconds", __name__)  # 打印处理时间
 
-		if background_frame:
+		if background_frame is not None:
 			processed_frame = merge_images(processed_frame, background_frame)
 
 		_, img_encoded = cv2.imencode('.jpg', processed_frame)
-		return send_file(BytesIO(img_encoded.tobytes()), mimetype='image/jpeg')
+		return StreamingResponse(BytesIO(img_encoded.tobytes()), media_type='image/jpeg')
 
 	return app
