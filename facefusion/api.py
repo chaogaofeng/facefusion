@@ -21,8 +21,6 @@ executor = None
 def process_frame(frame_data, source_face=None, background_frame=None, beautify=True):
 	start_time = time.time()
 
-	print(state_manager.get_item('face_selector_mode'), "====")
-
 	processors = []
 	if beautify:
 		processors.append('face_enhancer')
@@ -114,8 +112,6 @@ def create_app(max_workers):
 
 	global executor
 	executor = ThreadPoolExecutor(max_workers=max_workers if max_workers else 4)  # 控制最大线程数
-
-	state_manager.set_item('face_selector_mode', 'one')
 
 	@app.post('/process_image')
 	async def process_image(
