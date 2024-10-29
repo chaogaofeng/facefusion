@@ -2,14 +2,13 @@ import asyncio
 import time
 from collections import OrderedDict
 
-from fastapi import FastAPI, File, UploadFile, Form
+from fastapi import FastAPI, File, UploadFile, Form, WebSocket
 from fastapi.responses import StreamingResponse
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 import cv2
 import numpy as np
 from starlette.websockets import WebSocketDisconnect
-from websocket import WebSocket
 
 from facefusion import logger
 from facefusion.audio import create_empty_audio_frame
