@@ -51,7 +51,9 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 
 	# 异步执行图像处理
 	source_audio_frame = create_empty_audio_frame()
+	i = 0
 	for processor_module in get_processors_modules(processors):
+		t = time.time()
 		logger.disable()
 		if processor_module.pre_process('stream'):
 			target_vision_frame = processor_module.process_frame(
@@ -61,15 +63,23 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 					'target_vision_frame': target_vision_frame
 				})
 		logger.enable()
+		e = time.time()
+		logger.info(f"processor: {processors[i]}, processing time: {e - t:.4f} seconds",
+					__name__)  # 打印处理时间
+		i +=1
 
 	if background_frame is not None:
+		t = time.time()
 		target_vision_frame = merge_images(target_vision_frame, background_frame)
+		e = time.time()
+		logger.info(f"processor: background, processing time: {e - t:.4f} seconds",
+					__name__)  # 打印处理时间
 
 	_, img_encoded = cv2.imencode('.jpg', target_vision_frame)
 
 	end_time = time.time()
 	processing_time = end_time - start_time
-	logger.info(f"Processing time: {end_time - start_time:.4f} seconds", __name__)  # 打印处理时间
+	logger.info(f"processors:{processors} processing time: {end_time - start_time:.4f} seconds", __name__)  # 打印处理时间
 	return BytesIO(img_encoded.tobytes()), processing_time
 
 
