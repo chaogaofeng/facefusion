@@ -1,4 +1,6 @@
+import asyncio
 import time
+from collections import OrderedDict
 
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import StreamingResponse
@@ -6,17 +8,48 @@ from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 import cv2
 import numpy as np
+from starlette.websockets import WebSocketDisconnect
+from websocket import WebSocket
 
 from facefusion import logger
 from facefusion.audio import create_empty_audio_frame
 from facefusion.face_analyser import get_many_faces, get_average_face
 from facefusion.processors.core import get_processors_modules
-from facefusion.typing import Face, VisionFrame
 
 executor = None
 
 
-def process_frame(source_face: Face, target_vision_frame: VisionFrame, processors: list[str]) -> VisionFrame:
+async def process_frame(frame_data, source_face=None, background_frame=None, beautify=True):
+	processors = []
+	if beautify:
+		processors.append('face_enhancer')
+	if source_face is not None:
+		processors.append('face_swapper')
+
+	# frameIndex:int    //帧序
+	# width:int         //图像宽
+	# height:int        //图像高
+	# format:String     //图像格式
+	# length:int        //图像数据大小
+	# data:byte[]       //图像数据
+
+	# 常见格式处理：
+	# RGBA_8888 = 1
+	# RGBX_8888 = 2
+	# RGB_888     = 3
+	# RGB_565 = 4
+	# NV21
+	# JPEG
+	# YUV_420_888
+	# YUV_422_888
+	# YUV_444_888
+
+	image_bytes = frame_data['data']
+	np_img = np.frombuffer(image_bytes, np.uint8)
+	capture_frame = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
+
+	target_vision_frame = None
+	# 异步执行图像处理
 	source_audio_frame = create_empty_audio_frame()
 	for processor_module in get_processors_modules(processors):
 		logger.disable()
@@ -28,7 +61,13 @@ def process_frame(source_face: Face, target_vision_frame: VisionFrame, processor
 					'target_vision_frame': target_vision_frame
 				})
 		logger.enable()
-	return target_vision_frame
+
+	processed_frame = target_vision_frame
+	if processed_frame and background_frame is not None:
+		processed_frame = merge_images(processed_frame, background_frame)
+
+	_, img_encoded = cv2.imencode('.jpg', processed_frame)
+	return BytesIO(img_encoded.tobytes())
 
 
 def merge_images(frame, background_image):
@@ -67,19 +106,14 @@ def create_app(max_workers):
 		swap: UploadFile = File(None),
 		beautify: bool = Form(True)
 	):
-		processors = []
-		if beautify:
-			processors.append('face_enhancer')
-
+		frame_data = {}
 		# 获取待处理图像
 		image_bytes = image.read()  # 读取图像字节
-		np_img = np.frombuffer(image_bytes, np.uint8)
-		capture_frame = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
+		frame_data['data'] = image_bytes
 
 		# 获取待替换人脸图像
 		source_face = None
 		if swap:
-			processors.append('face_swapper')
 			image_bytes = swap.read()  # 读取图像字节
 			np_img = np.frombuffer(image_bytes, np.uint8)
 			source_frame = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
@@ -94,7 +128,7 @@ def create_app(max_workers):
 			background_frame = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
 
 		start_time = time.time()
-		future = executor.submit(process_frame, source_face, capture_frame, processors)
+		future = executor.submit(process_frame, frame_data, source_face, background_frame, beautify)
 		processed_frame = future.result()
 		end_time = time.time()
 		logger.info(f"Processing time: {end_time - start_time:.4f} seconds", __name__)  # 打印处理时间
@@ -104,5 +138,68 @@ def create_app(max_workers):
 
 		_, img_encoded = cv2.imencode('.jpg', processed_frame)
 		return StreamingResponse(BytesIO(img_encoded.tobytes()), media_type='image/jpeg')
+
+	@app.websocket("/ws")
+	async def websocket_endpoint(websocket: WebSocket):
+		await websocket.accept()
+
+		# 有序字典用于保存处理后的帧数据
+		results = OrderedDict()
+		next_id_to_send = 0
+
+		# 设置初始参数
+		initial_params_set = False
+		background_frame = None
+		source_face = None
+		try:
+			while True:
+				# 等待客户端请求
+				frame_data = await websocket.receive_json()
+
+				# 首次设置初始参数
+				if not initial_params_set:
+					# 设置是否美化
+					beautify = frame_data.get("beautify", True)
+
+					# 设置背景图像
+					water_file = frame_data.get('water')
+					if water_file:
+						water_bytes = await water_file.read()
+						np_img = np.frombuffer(water_bytes, np.uint8)
+						background_frame = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
+
+					# 设置换脸图像
+					swap_file = frame_data.get('swap')
+					if swap_file:
+						swap_bytes = await swap_file.read()
+						np_img = np.frombuffer(swap_bytes, np.uint8)
+						source_frame = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
+						source_faces = get_many_faces([source_frame])
+						source_face = get_average_face(source_faces)
+
+					initial_params_set = True  # 标记初始化完成
+
+				future = executor.submit(process_frame, frame_data, source_face, background_frame, beautify)
+				frameIndex = frame_data['frameIndex']
+				results[frameIndex] = future  # 将 Future 按 frame_id 存入字典
+
+				# 检查是否有按顺序完成的结果可以返回
+				while next_id_to_send in results and results[next_id_to_send].done():
+					processed_image, processing_time = await asyncio.wrap_future(results[next_id_to_send])
+					# 发送处理结果
+					await websocket.send_json({
+						"frame_id": next_id_to_send,
+						"image": processed_image.getvalue(),
+						"processing_time": processing_time
+					})
+					# 移除已发送的结果，并更新下一个待发送的帧编号
+					del results[next_id_to_send]
+					next_id_to_send += 1
+		except WebSocketDisconnect:
+			logger.info("WebSocket disconnected", __name__)
+		except Exception as e:
+			logger.error(f"Error in WebSocket connection: {e}", __name__)
+		finally:
+			await websocket.close()
 
 	return app
