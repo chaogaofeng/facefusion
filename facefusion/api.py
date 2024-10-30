@@ -240,7 +240,7 @@ def create_app(max_workers):
 		image: UploadFile = File(...),
 		water: UploadFile = File(None),
 		swap: UploadFile = File(None),
-		beautify: bool = Form(True)
+		beautify: bool = Form(False)
 	):
 		frame_data = {}
 
