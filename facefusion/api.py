@@ -4,7 +4,7 @@ import time
 import zlib
 import traceback
 from collections import OrderedDict
-
+from io import BytesIO
 from fastapi import FastAPI, File, UploadFile, Form, WebSocket
 from fastapi.responses import StreamingResponse
 from concurrent.futures import ThreadPoolExecutor
