@@ -358,6 +358,7 @@ def create_app(max_workers):
                 # 等待客户端请求
                 data = await websocket.receive_bytes()
                 buffer.extend(data)  # 将接收到的数据添加到缓冲区
+                logger.debug(f"Received WS {len(data)} bytes", __name__)
                 while len(buffer) >= 8:  # 至少需要 8 字节来读取包类型和数据长度
                     packet_type, data_length = struct.unpack('!II', buffer[:8])
 
