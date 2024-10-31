@@ -250,7 +250,7 @@ def create_app(max_workers):
 		frame_data['width'] = 0
 		frame_data['height'] = 0
 		frame_data['format'] = frame_format
-		frame_data['data'] = convert_to_bitmap(0, 0, frame_format, data)
+		frame_data['data'] = convert_to_bitmap(0, 0, frame_format, image_bytes)
 
 		# 获取待替换人脸图像
 		source_face = None
