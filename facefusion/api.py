@@ -489,7 +489,6 @@ def create_app(max_workers):
         except Exception as e:
             traceback.print_exc()
             logger.error(f"Error in WebSocket connection: {e}", __name__)
-        finally:
             await websocket.close()
 
     return app
