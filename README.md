@@ -60,5 +60,5 @@ Read the [documentation](https://docs.facefusion.io) for a deep dive.
 
 ```shell
 python facefusion.py api --execution-providers coreml --execution-thread-count 5 --face-selector-mode one --processors face_swapper face_enhancer  --log-level info
-python facefusion.py api --execution-providers cuda --execution-thread-count 5 --face-selector-mode one --processors face_swapper face_enhancer  --log-level info
+python facefusion.py api --execution-providers cuda --execution-thread-count 10 --face-selector-mode one --processors face_swapper face_enhancer  --log-level info
 ```

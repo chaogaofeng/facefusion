@@ -385,7 +385,7 @@ def create_app(max_workers):
                         device_id_length = struct.unpack('!I', content[:4])[0]
                         device_id = content[4:4 + device_id_length].decode('utf-8')
                         logger.info(f"Received heartbeat from device: {device_id}")
-
+                        await websocket.send_bytes(struct.pack('!II', packet_type, data_length)+packet)
                     elif packet_type == 2:  # 参数更新包
                         offset = 0
 
