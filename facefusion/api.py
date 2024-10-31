@@ -205,7 +205,7 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
     height, width, channels = target_vision_frame.shape
 
     # 将图像数据转换为字节数组
-    image_data = bitmap_to_data(target_vision_frame)
+    image_data = bitmap_to_data(target_vision_frame, format_type)
     return {
         "frameIndex": frame_index,
         "width": width,
