@@ -341,9 +341,7 @@ def create_app(max_workers):
         future = executor.submit(process_frame, frame_data, source_face, background_frame, beautify)
         processed_frame = await asyncio.wrap_future(future)
 
-        img = convert_to_bitmap(processed_frame['width'], processed_frame['height'], processed_frame['format'], processed_frame['data'])
-        _, img_encoded = cv2.imencode('.jpg', img)
-        return StreamingResponse(io.BytesIO(img_encoded), media_type=f'image/{processed_frame['format']}')
+        return StreamingResponse(BytesIO(processed_frame['data']), media_type=image.content_type)
 
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket):
