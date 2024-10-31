@@ -148,10 +148,10 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
     start_time = time.time()
 
     processors = []
-    if beautify:
-        processors.append('face_enhancer')
     if source_face is not None:
         processors.append('face_swapper')
+    if beautify:
+        processors.append('face_enhancer')
 
     # frameIndex:int    //帧序
     # width:int         //图像宽
