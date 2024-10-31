@@ -487,6 +487,7 @@ def create_app(max_workers):
         except WebSocketDisconnect:
             logger.info("WebSocket disconnected", __name__)
         except Exception as e:
+            traceback.print_exc()
             logger.error(f"Error in WebSocket connection: {e}", __name__)
         finally:
             await websocket.close()
