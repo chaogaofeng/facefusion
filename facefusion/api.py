@@ -78,9 +78,6 @@ def convert_to_bitmap(width, height, format_type, data):
     elif format_type == "JPEG":
         image_array = np.frombuffer(data, dtype=np.uint8)
         image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
-        data = image.tobytes()
-        image_array = np.frombuffer(data, dtype=np.uint8)
-        image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
     elif format_type == "PNG":
         image_array = np.frombuffer(data, dtype=np.uint8)
         image = cv2.imdecode(image_array, cv2.IMREAD_UNCHANGED)
