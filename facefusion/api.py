@@ -107,7 +107,7 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 	width = frame_data['width']
 	height = frame_data['height']
 	format_type = frame_data['format']
-	target_vision_frame = convert_to_bitmap(0, 0, frame_format, data)
+	target_vision_frame = convert_to_bitmap(width, height, format_type, data)
 
 	# 异步执行图像处理
 	source_audio_frame = create_empty_audio_frame()
