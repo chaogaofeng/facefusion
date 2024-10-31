@@ -103,10 +103,11 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 	# data:byte[]       //图像数据
 
 	frame_index = frame_data.get('frameIndex', 0)
-	target_vision_frame = frame_data['data']
+	data = frame_data.get('data')
 	width = frame_data['width']
 	height = frame_data['height']
 	format_type = frame_data['format']
+	target_vision_frame = convert_to_bitmap(0, 0, frame_format, data)
 
 	# 异步执行图像处理
 	source_audio_frame = create_empty_audio_frame()
@@ -250,7 +251,7 @@ def create_app(max_workers):
 		frame_data['width'] = 0
 		frame_data['height'] = 0
 		frame_data['format'] = frame_format
-		frame_data['data'] = convert_to_bitmap(0, 0, frame_format, image_bytes)
+		frame_data['data'] = image_bytes
 
 		# 获取待替换人脸图像
 		source_face = None
@@ -279,8 +280,7 @@ def create_app(max_workers):
 		future = executor.submit(process_frame, frame_data, source_face, background_frame, beautify)
 		processed_frame = await asyncio.wrap_future(future)
 
-		img = convert_to_bitmap(processed_frame['width'], processed_frame['height'], processed_frame['format'], processed_frame['data'])
-		return StreamingResponse(img, media_type=f'image/{processed_frame['format']}')
+		return StreamingResponse(processed_frame['data'], media_type=f'image/{processed_frame['format']}')
 
 	@app.websocket("/ws")
 	async def websocket_endpoint(websocket: WebSocket):
