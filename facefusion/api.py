@@ -108,7 +108,7 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 	height = frame_data['height']
 	format_type = frame_data['format']
 	try:
-		target_vision_frame = convert_to_bitmap(width, height, data, format_type)
+		target_vision_frame = convert_to_bitmap(width, height, format_type, data)
 	except Exception as e:
 		traceback.print_exc()
 		logger.error(f"Error converting image to bitmap: {e}", __name__)
