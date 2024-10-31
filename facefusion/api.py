@@ -109,6 +109,7 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 	try:
 		target_vision_frame = convert_to_bitmap(width, height, data, format_type)
 	except Exception as e:
+		debugtrace.print_traceback()
 		logger.error(f"Error converting image to bitmap: {e}", __name__)
 		return frame_data
 
@@ -266,6 +267,7 @@ def create_app(max_workers):
 				source_faces = get_many_faces([source_frame])
 				source_face = get_average_face(source_faces)
 			except Exception as e:
+				debugtrace.print_traceback()
 				logger.error(f"Error processing swap image: {e}", __name__)
 
 		# 获取背景图像
@@ -276,6 +278,7 @@ def create_app(max_workers):
 				image_format = identify_image_format(image_bytes)
 				background_frame = convert_to_bitmap(0, 0, image_format, image_bytes)
 			except Exception as e:
+				debugtrace.print_traceback()
 				logger.error(f"Error processing water image: {e}", __name__)
 
 		future = executor.submit(process_frame, frame_data, source_face, background_frame, beautify)
@@ -345,6 +348,7 @@ def create_app(max_workers):
 								image_format = identify_image_format(background_image_data)
 								background_frame = convert_to_bitmap(0, 0, image_format, background_image_data)
 							except Exception as e:
+								debugtrace.print_traceback()
 								logger.error(f'Error occurred while loading background image: {e}', __name__)
 
 						swap_image_length = struct.unpack('!I', data[offset:offset + 4])[0]
@@ -359,6 +363,7 @@ def create_app(max_workers):
 								source_faces = get_many_faces([source_frame])
 								source_face = get_average_face(source_faces)
 							except Exception as e:
+								debugtrace.print_traceback()
 								logger.error(f'Error occurred while loading swap image: {e}', __name__)
 						beautify = beautify_flag == 1
 
