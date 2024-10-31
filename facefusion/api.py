@@ -103,16 +103,10 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 	# data:byte[]       //图像数据
 
 	frame_index = frame_data.get('frameIndex', 0)
-	data = frame_data['data']
+	target_vision_frame = frame_data['data']
 	width = frame_data['width']
 	height = frame_data['height']
 	format_type = frame_data['format']
-	try:
-		target_vision_frame = convert_to_bitmap(width, height, format_type, data)
-	except Exception as e:
-		traceback.print_exc()
-		logger.error(f"Error converting image to bitmap: {e}", __name__)
-		return frame_data
 
 	# 异步执行图像处理
 	source_audio_frame = create_empty_audio_frame()
@@ -256,7 +250,7 @@ def create_app(max_workers):
 		frame_data['width'] = 0
 		frame_data['height'] = 0
 		frame_data['format'] = frame_format
-		frame_data['data'] = image_bytes
+		frame_data['data'] = convert_to_bitmap(0, 0, frame_format, data)
 
 		# 获取待替换人脸图像
 		source_face = None
@@ -383,6 +377,7 @@ def create_app(max_workers):
 						image_data_length = struct.unpack('!I', content[offset:offset + 4])[0]
 						offset += 4
 
+						image_data = None
 						if image_data_length > 0:
 							image_data = content[offset:offset + image_data_length]
 							offset += image_data_length
