@@ -47,20 +47,32 @@ def convert_to_bitmap(width, height, format_type, data):
 	# YUV_420_888
 	# YUV_422_888
 	# YUV_444_888
+	if data is None or len(data) == 0:
+		raise ValueError("数据为空或无效")
 
 	if format_type == "RGBA_8888":
+		if len(data) != width * height * 4:
+			raise ValueError("数据长度与图像尺寸不匹配")
 		image_array = np.frombuffer(data, dtype=np.uint8).reshape((height, width, 4))
 		image = cv2.cvtColor(image_array, cv2.COLOR_RGBA2BGR)
 	elif format_type == "RGBX_8888":
+		if len(data) != width * height * 4:
+			raise ValueError("数据长度与图像尺寸不匹配")
 		image_array = np.frombuffer(data, dtype=np.uint8).reshape((height, width, 4))
 		image = cv2.cvtColor(image_array[:, :, :3], cv2.COLOR_RGB2BGR)
 	elif format_type == "RGB_888":
+		if len(data) != width * height * 3:
+			raise ValueError("数据长度与图像尺寸不匹配")
 		image_array = np.frombuffer(data, dtype=np.uint8).reshape((height, width, 3))
 		image = cv2.cvtColor(image_array, cv2.COLOR_RGB2BGR)
 	elif format_type == "RGB_565":
+		if len(data) != width * height * 2:
+			raise ValueError("数据长度与图像尺寸不匹配")
 		image_array = np.frombuffer(data, dtype=np.uint16).reshape((height, width))
 		image = cv2.cvtColor(image_array, cv2.COLOR_BGR5652BGR)
 	elif format_type == "NV21":
+		if len(data) != width * (height + height // 2):
+			raise ValueError("数据长度与图像尺寸不匹配")
 		image_array = np.frombuffer(data, dtype=np.uint8).reshape((height + height // 2, width))
 		image = cv2.cvtColor(image_array, cv2.COLOR_YUV2BGR_NV21)
 	elif format_type == "JPEG":
@@ -70,12 +82,18 @@ def convert_to_bitmap(width, height, format_type, data):
 		image_array = np.frombuffer(data, dtype=np.uint8)
 		image = cv2.imdecode(image_array, cv2.IMREAD_UNCHANGED)
 	elif format_type == "YUV_420_888":
+		if len(data) != width * height * 3 // 2:
+			raise ValueError("数据长度与图像尺寸不匹配")
 		image_array = np.frombuffer(data, dtype=np.uint8).reshape((height * 3 // 2, width))
 		image = cv2.cvtColor(image_array, cv2.COLOR_YUV2BGR_I420)
 	elif format_type == "YUV_422_888":
+		if len(data) != width * height * 2:
+			raise ValueError("数据长度与图像尺寸不匹配")
 		image_array = np.frombuffer(data, dtype=np.uint8).reshape((height * 2, width))
 		image = cv2.cvtColor(image_array, cv2.COLOR_YUV2BGR_Y422)
 	elif format_type == "YUV_444_888":
+		if len(data) != width * height * 3:
+			raise ValueError("数据长度与图像尺寸不匹配")
 		image_array = np.frombuffer(data, dtype=np.uint8).reshape((height, width, 3))
 		image = cv2.cvtColor(image_array, cv2.COLOR_YUV2BGR)
 	else:
@@ -281,7 +299,8 @@ def create_app(max_workers):
 		processed_frame = await asyncio.wrap_future(future)
 
 		img = convert_to_bitmap(processed_frame['width'], processed_frame['height'], processed_frame['format'], processed_frame['data'])
-		return StreamingResponse(io.BytesIO(img), media_type=f'image/{processed_frame['format']}')
+		_, img_encoded = cv2.imencode('.jpg', img)
+		return StreamingResponse(io.BytesIO(img_encoded), media_type=f'image/{processed_frame['format']}')
 
 	@app.websocket("/ws")
 	async def websocket_endpoint(websocket: WebSocket):
