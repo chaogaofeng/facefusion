@@ -493,6 +493,7 @@ def create_app():
 							'height': height,
 							'data': image_data,
 							'format': format_type,
+							'start': time.time(),
 						}
 
 						future = executor.submit(process_frame, frame_data, source_face, background_frame, beautify)
@@ -521,9 +522,10 @@ def create_app():
 							t = time.time()
 							await websocket.send_bytes(packet)
 							e = time.time()
+							total = e-processed['start']
 							logger.info(
 								f"Sent processed frame index: {processed['frameIndex']},size: {processed['width']}x{processed['height']},"
-								f"data length: {processed['length']}, format: {str(processed['format'])}, send time: {e-t}", __name__)
+								f"data length: {processed['length']}, format: {str(processed['format'])}, send time: {e-t}, total time: {total}", __name__)
 							# 移除已发送的结果，并更新下一个待发送的帧编号
 							del results[next_id_to_send]
 							next_id_to_send += 1
