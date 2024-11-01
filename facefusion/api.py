@@ -351,7 +351,7 @@ def create_app():
 		buffer = bytearray()
 		# 有序字典用于保存处理后的帧数据
 		results = OrderedDict()
-		next_id_to_send = 1
+		next_id_to_send = None
 		# 设置初始参数
 		background_frame = None
 		source_face = None
@@ -484,6 +484,8 @@ def create_app():
 
 						future = executor.submit(process_frame, frame_data, source_face, background_frame, beautify)
 						results[frame_index] = future  # 将 Future 按 frame_id 存入字典
+						if next_id_to_send is None:
+							next_id_to_send = frame_index
 
 						# 检查是否有按顺序完成的结果可以返回
 						while next_id_to_send in results and results[next_id_to_send].done():
