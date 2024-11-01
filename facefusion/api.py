@@ -129,28 +129,16 @@ def bitmap_to_data(image, width, height, format_type):
 	elif format_type == "NV21":
 		height, width = image.shape[:2]
 
-		# 将 BGR 图像转换为 YUV I420 格式
+		# 转换到 NV21 格式
 		yuv_image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV_I420)
+		y_plane = yuv_image[:height, :]
+		uv_plane = yuv_image[height:, :].reshape((height // 2, width))
 
-		# 创建 NV21 图像的空数组
-		nv21_image = np.empty((height + height // 2, width), dtype=np.uint8)
+		# NV21 格式要求 UV 平面交替排列
+		vu_plane = uv_plane[:, 1::2]
+		vu_plane = np.dstack((vu_plane, uv_plane[:, ::2])).reshape(-1)
 
-		# 填充 Y 分量
-		nv21_image[0:height, :] = yuv_image[0:height, :]
-
-		# 提取 U 和 V 分量
-		u_plane = yuv_image[height:height + height // 4 * width // 2].reshape((height // 4, width // 2))
-		v_plane = yuv_image[height + height // 4 * width // 2:].reshape((height // 4, width // 2))
-
-		# 在 NV21 中，UV 分量交错存储
-		uv_plane = np.zeros((height // 2, width), dtype=np.uint8)
-		uv_plane[0::2, 0::2] = v_plane  # V 分量放到偶数行的偶数列
-		uv_plane[0::2, 1::2] = u_plane  # U 分量放到偶数行的奇数列
-
-		# 填充 UV 分量到 NV21 图像
-		nv21_image[height:, :] = uv_plane
-
-		return nv21_image.tobytes()
+		return np.concatenate((y_plane.flatten(), vu_plane)).tobytes()
 	elif format_type == "JPEG":
 		_, jpeg_data = cv2.imencode('.jpg', image)
 		return jpeg_data.tobytes()
