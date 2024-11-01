@@ -360,20 +360,21 @@ def create_app():
                 while len(buffer) >= 8:  # 至少需要 8 字节来读取包类型和数据长度
                     packet_type, data_length = struct.unpack('!II', buffer[:8])
 
+                    crc_len = 4
                     # 检查缓冲区是否包含完整的数据包
-                    if len(buffer) < 8 + data_length + 4:  # +4 是校验和的长度
+                    if len(buffer) < 8 + data_length + crc_len:  # +4 是校验和的长度
                         break  # 缓冲区不够，等待下次接收
 
                     # 提取完整的数据包
-                    packet = buffer[:8 + data_length + 4]
-                    buffer = buffer[8 + data_length + 4:]  # 移除已处理的数据包
+                    packet = buffer[:8 + data_length + crc_len]
+                    buffer = buffer[8 + data_length + crc_len:]  # 移除已处理的数据包
 
                     # 解析数据包内容
-                    content = packet[8:-4]  # 去掉包头和校验和
+                    content = packet[8:-crc_len]  # 去掉包头和校验和
                     checksum = struct.unpack('!I', packet[-4:])[0]
 
                     # 校验 CRC32
-                    calculated_checksum = zlib.crc32(packet[:-4])
+                    calculated_checksum = zlib.crc32(packet[:-crc_len]) & 0xFFFFFFFF
                     if calculated_checksum != checksum:
                         logger.error(f"CRC32 checksum mismatch!, {checksum}, calculated: {calculated_checksum}", __name__)
                         continue
@@ -475,8 +476,8 @@ def create_app():
                             data_length = len(data_content)
 
                             packet = struct.pack('!II', packet_type, data_length) + data_content
-                            checksum = zlib.crc32(packet)
-                            packet += struct.pack('!I', checksum)
+                            checksum = zlib.crc32(packet) & 0xFFFFFFFF
+                            packet += struct.pack('!Q', checksum)
 
                             # 发送处理结果
                             await websocket.send_bytes(packet)
