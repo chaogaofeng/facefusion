@@ -518,7 +518,9 @@ def create_app():
 
 							# 发送处理结果
 							await websocket.send_bytes(packet)
-							logger.info(f"Sent processed frame: {processed['frameIndex']}", __name__)
+							logger.info(
+								f"Sent processed frame index: {processed['frameIndex']},size: {processed['width']}x{processed['height']},"
+								f"data length: {processed['length']}, format: {str(processed['format'])}", __name__)
 							# 移除已发送的结果，并更新下一个待发送的帧编号
 							del results[next_id_to_send]
 							next_id_to_send += 1
