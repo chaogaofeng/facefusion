@@ -63,7 +63,7 @@ def route(args : Args) -> None:
 		if not common_pre_check() or not processors_pre_check():
 			return conditional_exit(2)
 		port = 8005
-		app = create_app(max_workers=state_manager.get_item('execution_thread_count'))
+		init_app(max_workers=state_manager.get_item('execution_thread_count'))
 		if state_manager.get_item('execution_queue_count') > 1:
 			import subprocess
 			subprocess.run([
