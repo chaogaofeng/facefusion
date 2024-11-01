@@ -374,7 +374,7 @@ def create_app():
                     checksum = struct.unpack('!Q', packet[-crc_len:])[0]
 
                     # 校验 CRC32
-                    calculated_checksum = zlib.crc32(packet[:-crc_len]) & 0xFFFFFFFF
+                    calculated_checksum = zlib.crc32(content) & 0xFFFFFFFF
                     if calculated_checksum != checksum:
                         logger.error(f"CRC32 checksum mismatch!, {checksum}, calculated: {calculated_checksum}", __name__)
                         continue
