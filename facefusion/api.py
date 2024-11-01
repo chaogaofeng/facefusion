@@ -285,7 +285,6 @@ def merge_images(frame, background_image):
         combined_image = cv2.cvtColor(combined_image, cv2.COLOR_BGR2RGB)
     return combined_image
 
-app = create_app()
 def create_app():
     app = FastAPI()
 
@@ -493,6 +492,7 @@ def create_app():
 
     return app
 
+app = create_app()
 def start_app():
     port = 8005
     if state_manager.get_item('execution_queue_count') > 1:
