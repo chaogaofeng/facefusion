@@ -288,6 +288,7 @@ def merge_images(frame, background_image):
 app = None
 def start_app():
     port = 8005
+    global app
     app = create_app()
     if state_manager.get_item('execution_queue_count') > 1:
         import subprocess
