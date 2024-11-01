@@ -135,7 +135,7 @@ def bitmap_to_data(image, width, height, format_type):
 		uv_data = yuv_image[height:, :]
 		if uv_data.size == 0:
 			raise ValueError("UV分量为空，无法填充 NV21 图像")
-		nv21_image[height:, :] = uv_data.reshape(-1)
+		nv21_image[height:, :] = uv_data.flatten()
 		return nv21_image.tobytes()
 	elif format_type == "JPEG":
 		_, jpeg_data = cv2.imencode('.jpg', image)
