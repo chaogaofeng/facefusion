@@ -128,14 +128,24 @@ def bitmap_to_data(image, width, height, format_type):
 		return image_array.astype(np.uint16).tobytes()
 	elif format_type == "NV21":
 		height, width = image.shape[:2]
+
+		# 将BGR图像转换为YUV I420格式
 		yuv_image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV_I420)
-		# height, width = yuv_image.shape[:2]
+
+		# 创建NV21图像的空数组
 		nv21_image = np.empty((height + height // 2, width), dtype=np.uint8)
+
+		# 填充Y分量
 		nv21_image[0:height, :] = yuv_image[0:height, :]
 
-		uv_data = yuv_image[height:, :].reshape((height // 2, width // 2, 2))
-		nv21_image[height:, 0::2] = uv_data[:, :, 0].flatten()  # U 分量
-		nv21_image[height:, 1::2] = uv_data[:, :, 1].flatten()  # V 分量
+		# 提取U和V分量
+		u_plane = yuv_image[height:height + height // 4].flatten()
+		v_plane = yuv_image[height + height // 4:height + height // 2].flatten()
+
+		# 填充UV分量（交错存储）
+		nv21_image[height:, 0::2] = u_plane  # U分量
+		nv21_image[height:, 1::2] = v_plane  # V分量
+
 		return nv21_image.tobytes()
 	elif format_type == "JPEG":
 		_, jpeg_data = cv2.imencode('.jpg', image)
