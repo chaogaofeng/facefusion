@@ -32,7 +32,7 @@ def identify_image_format(image_bytes):
 	elif image_bytes[:4] == b'\x52\x49\x46\x46':
 		return 'WEBP'
 	else:
-		raise ValueError("不支持的图像格式")
+		raise ValueError(f"不支持的图像格式 {image_bytes[:20]}")
 
 
 def convert_to_bitmap(width, height, format_type, data):
