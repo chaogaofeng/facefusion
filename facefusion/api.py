@@ -361,12 +361,55 @@ def create_app():
 		# 有序字典用于保存处理后的帧数据
 		results = OrderedDict()
 		next_id_to_send = None
+		send_queue = asyncio.Queue()  # 用于存储待发送的数据帧
+
+		async def send_loop():
+			"""异步发送队列中的数据帧"""
+			while True:
+				processed = await send_queue.get()  # 从队列获取待发送的数据
+				# 创建完整数据包
+				packet_type = 1  # 相机帧类型
+				data_content = (
+					struct.pack('!I', processed['frameIndex']) +
+					struct.pack('!I', processed['width']) +
+					struct.pack('!I', processed['height']) +
+					struct.pack('!I', processed['length']) + processed['data']
+				)
+				data_length = len(data_content)
+
+				packet = struct.pack('!II', packet_type, data_length) + data_content
+				checksum = zlib.crc32(data_content) & 0xFFFFFFFF
+				packet += struct.pack('!Q', checksum)
+
+				# 发送处理结果
+				t = time.time()
+				await websocket.send_bytes(packet)
+				e = time.time()
+				total = e - processed['start']
+				logger.info(
+					f"Sent frame, index: {processed['frameIndex']}, w*h: {processed['width']}x{processed['height']},"
+					f"length: {processed['length']}, format: {str(processed['format'])}, send time: {e - t}, total time: {total}",
+					__name__)
+				await websocket.send_bytes(packet)
+				send_queue.task_done()
+
+		# 启动发送循环
+		asyncio.create_task(send_loop())
+
 		# 设置初始参数
 		background_frame = None
 		source_face = None
 		beautify = False
 		try:
 			while True:
+				# 检查是否有按顺序完成的结果可以返回
+				while next_id_to_send in results and results[next_id_to_send].done():
+					processed = await asyncio.wrap_future(results[next_id_to_send])
+					await send_queue.put(processed)
+					# 移除已发送的结果，并更新下一个待发送的帧编号
+					del results[next_id_to_send]
+					next_id_to_send += 1
+
 				# 等待客户端请求
 				data = await websocket.receive_bytes()
 				buffer.extend(data)  # 将接收到的数据添加到缓冲区
@@ -498,35 +541,6 @@ def create_app():
 						if next_id_to_send is None:
 							next_id_to_send = frame_index
 
-						# 检查是否有按顺序完成的结果可以返回
-						while next_id_to_send in results and results[next_id_to_send].done():
-							processed = await asyncio.wrap_future(results[next_id_to_send])
-							# 创建完整数据包
-							packet_type = 1  # 相机帧类型
-							data_content = (
-								struct.pack('!I', processed['frameIndex']) +
-								struct.pack('!I', processed['width']) +
-								struct.pack('!I', processed['height']) +
-								struct.pack('!I', processed['length']) + processed['data']
-							)
-							data_length = len(data_content)
-
-							packet = struct.pack('!II', packet_type, data_length) + data_content
-							checksum = zlib.crc32(data_content) & 0xFFFFFFFF
-							packet += struct.pack('!Q', checksum)
-
-							# 发送处理结果
-							t = time.time()
-							await websocket.send_bytes(packet)
-							e = time.time()
-							total = e - processed['start']
-							logger.info(
-								f"Sent frame, index: {processed['frameIndex']}, w*h: {processed['width']}x{processed['height']},"
-								f"length: {processed['length']}, format: {str(processed['format'])}, send time: {e - t}, total time: {total}",
-								__name__)
-							# 移除已发送的结果，并更新下一个待发送的帧编号
-							del results[next_id_to_send]
-							next_id_to_send += 1
 		except WebSocketDisconnect as e:
 			logger.info(f"WebSocket disconnected: {e.code}", __name__)
 		except Exception as e:
