@@ -127,9 +127,8 @@ def bitmap_to_data(image, width, height, format_type):
 		image_array = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 		return image_array.astype(np.uint16).tobytes()
 	elif format_type == "NV21":
-		height1, width1 = image.shape[:2]
-		print("=======", height, width, height1, width1, flush=True)
 		yuv_image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV_I420)
+		height, width = yuv_image.shape[:2]
 		nv21_image = np.empty((height + height // 2, width), dtype=np.uint8)
 		nv21_image[0:height, :] = yuv_image[0:height, :]
 		nv21_image[height:, :] = yuv_image[height:, :].reshape(-1)
