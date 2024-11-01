@@ -508,7 +508,7 @@ def create_app():
 								struct.pack('!I', processed['frameIndex']) +
 								struct.pack('!I', processed['width']) +
 								struct.pack('!I', processed['height']) +
-								struct.pack('!I', processed['length']) + processed['data'],
+								struct.pack('!I', processed['length']) + processed['data']
 							)
 							data_length = len(data_content)
 
