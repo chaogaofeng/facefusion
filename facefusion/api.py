@@ -472,7 +472,7 @@ def create_app():
 							offset += image_data_length
 
 						print(f"Received camera frame, frame index: {frame_index},size: {width}x{height},"
-							  f"data length: {image_data_length}, format: {format_type} ")
+							  f"data length: {image_data_length}, format: {str(format_type)} ")
 
 						frame_data = {
 							'frameIndex': frame_index,
@@ -504,6 +504,7 @@ def create_app():
 
 							# 发送处理结果
 							await websocket.send_bytes(packet)
+							logger.info(f"Sent processed frame: {processed['frameIndex']}", __name__)
 							# 移除已发送的结果，并更新下一个待发送的帧编号
 							del results[next_id_to_send]
 							next_id_to_send += 1
