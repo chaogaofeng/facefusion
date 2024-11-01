@@ -49,6 +49,9 @@ def convert_to_bitmap(width, height, format_type, data):
 	if data is None or len(data) == 0:
 		raise ValueError("数据为空或无效")
 
+	if isinstance(format_type, bytearray):
+		format_type = format_type.decode('utf-8')
+
 	if format_type == "RGBA_8888":
 		if len(data) != width * height * 4:
 			raise ValueError("数据长度与图像尺寸不匹配")
@@ -167,7 +170,7 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 	width = frame_data['width']
 	height = frame_data['height']
 	format_type = frame_data['format']
-	target_vision_frame = convert_to_bitmap(width, height, str(format_type), data)
+	target_vision_frame = convert_to_bitmap(width, height, format_type, data)
 
 	# 异步执行图像处理
 	source_audio_frame = create_empty_audio_frame()
