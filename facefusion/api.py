@@ -483,8 +483,8 @@ def create_app():
 							image_data = content[offset:offset + image_data_length]
 							offset += image_data_length
 
-						print(f"Received camera frame, frame index: {frame_index},size: {width}x{height},"
-							  f"data length: {image_data_length}, format: {str(format_type)} ")
+						logger.info(f"Received camera frame, frame index: {frame_index},size: {width}x{height},"
+									f"data length: {image_data_length}, format: {str(format_type)} ", __name__)
 
 						frame_data = {
 							'frameIndex': frame_index,
