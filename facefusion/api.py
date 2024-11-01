@@ -373,7 +373,7 @@ def create_app():
 				# 等待客户端请求
 				data = await websocket.receive_bytes()
 				buffer.extend(data)  # 将接收到的数据添加到缓冲区
-				logger.debug(f"Received WS {len(data)} bytes", __name__)
+				logger.debug(f"Received data: length {len(data)}", __name__)
 				while len(buffer) >= 8:  # 至少需要 8 字节来读取包类型和数据长度
 					packet_type, data_length = struct.unpack('!II', buffer[:8])
 
@@ -407,7 +407,7 @@ def create_app():
 						device_id = content[offset:offset + device_id_length].decode('utf-8')
 						offset += device_id_length
 
-						logger.info(f"Received heartbeat from device: {device_id}")
+						logger.debug(f"Received heartbeat: device {device_id}")
 						await websocket.send_bytes(packet)
 					elif packet_type == 2:  # 参数更新包
 						offset = 0
@@ -484,8 +484,8 @@ def create_app():
 							image_data = content[offset:offset + image_data_length]
 							offset += image_data_length
 
-						logger.info(f"Received camera frame, frame index: {frame_index},size: {width}x{height},"
-									f"data length: {image_data_length}, format: {str(format_type)} ", __name__)
+						logger.debug(f"Received frame, index: {frame_index}, w*h: {width}x{height},"
+									f"length: {image_data_length}, format: {str(format_type)} ", __name__)
 
 						frame_data = {
 							'frameIndex': frame_index,
@@ -522,10 +522,11 @@ def create_app():
 							t = time.time()
 							await websocket.send_bytes(packet)
 							e = time.time()
-							total = e-processed['start']
-							logger.info(
-								f"Sent processed frame index: {processed['frameIndex']},size: {processed['width']}x{processed['height']},"
-								f"data length: {processed['length']}, format: {str(processed['format'])}, send time: {e-t}, total time: {total}", __name__)
+							total = e - processed['start']
+							logger.debug(
+								f"Sent frame, index: {processed['frameIndex']}, w*h: {processed['width']}x{processed['height']},"
+								f"length: {processed['length']}, format: {str(processed['format'])}, send time: {e - t}, total time: {total}",
+								__name__)
 							# 移除已发送的结果，并更新下一个待发送的帧编号
 							del results[next_id_to_send]
 							next_id_to_send += 1
