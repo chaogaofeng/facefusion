@@ -305,6 +305,7 @@ def create_app():
 
     max_workers = state_manager.get_item('execution_thread_count')
     executor = ThreadPoolExecutor(max_workers=max_workers if max_workers else 4)  # 控制最大线程数
+    logger.info(f"{max_workers} thread workers")
     @app.post('/process_image')
     async def process_image(
         image: UploadFile = File(...),
