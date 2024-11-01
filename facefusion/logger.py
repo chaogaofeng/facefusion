@@ -7,7 +7,7 @@ from facefusion.typing import LogLevel, TableContents, TableHeaders
 
 
 def init(log_level : LogLevel) -> None:
-	basicConfig(format = '%(message)s')
+	basicConfig(format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 	get_package_logger().setLevel(log_level_set.get(log_level))
 
 
