@@ -110,6 +110,9 @@ def bitmap_to_data(image, format_type):
 	if image is None:
 		raise ValueError("图像为空")
 
+	if isinstance(format_type, bytearray):
+		format_type = format_type.decode('utf-8')
+
 	if format_type == "RGBA_8888":
 		image_array = cv2.cvtColor(image, cv2.COLOR_BGR2RGBA)
 		return image_array.tobytes()
