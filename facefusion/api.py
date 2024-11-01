@@ -2,6 +2,7 @@ import asyncio
 import struct
 import time
 import zlib
+import uvicorn
 import traceback
 from collections import OrderedDict
 from io import BytesIO
