@@ -476,7 +476,7 @@ def create_app():
                             data_length = len(data_content)
 
                             packet = struct.pack('!II', packet_type, data_length) + data_content
-                            checksum = zlib.crc32(packet) & 0xFFFFFFFF
+                            checksum = zlib.crc32(data_content) & 0xFFFFFFFF
                             packet += struct.pack('!Q', checksum)
 
                             # 发送处理结果
