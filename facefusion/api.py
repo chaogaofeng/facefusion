@@ -524,8 +524,8 @@ def create_app():
 							# 移除已发送的结果，并更新下一个待发送的帧编号
 							del results[next_id_to_send]
 							next_id_to_send += 1
-		except WebSocketDisconnect:
-			logger.info("WebSocket disconnected", __name__)
+		except WebSocketDisconnect as e:
+			logger.info(f"WebSocket disconnected: {e.code}", __name__)
 		except Exception as e:
 			traceback.print_exc()
 			logger.error(f"Error in WebSocket connection: {e}", __name__)
