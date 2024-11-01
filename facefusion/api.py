@@ -286,9 +286,9 @@ def merge_images(frame, background_image):
         combined_image = cv2.cvtColor(combined_image, cv2.COLOR_BGR2RGB)
     return combined_image
 
+app = FastAPI()
 
 def create_app(max_workers):
-    app = FastAPI()
 
     global executor
     executor = ThreadPoolExecutor(max_workers=max_workers if max_workers else 4)  # 控制最大线程数

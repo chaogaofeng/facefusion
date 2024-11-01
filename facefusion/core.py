@@ -68,7 +68,7 @@ def route(args : Args) -> None:
 			import subprocess
 			subprocess.run([
 				"uvicorn",
-				f"api:app",
+				f"facefusion.api:app",
 				"--host", "0.0.0.0",
 				"--port", str(port),
 				"--workers", str(state_manager.get_item('execution_queue_count'))
