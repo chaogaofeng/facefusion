@@ -285,9 +285,10 @@ def merge_images(frame, background_image):
         combined_image = cv2.cvtColor(combined_image, cv2.COLOR_BGR2RGB)
     return combined_image
 
-app = FastAPI()
+app = None
 def start_app():
     port = 8005
+    app = create_app()
     if state_manager.get_item('execution_queue_count') > 1:
         import subprocess
         subprocess.run([
@@ -300,6 +301,8 @@ def start_app():
     else:
         uvicorn.run(app, host="0.0.0.0", port=port)
 def create_app():
+    app = FastAPI()
+
     state_manager.get_item('execution_thread_count')
     executor = ThreadPoolExecutor(max_workers=max_workers if max_workers else 4)  # 控制最大线程数
     @app.post('/process_image')
