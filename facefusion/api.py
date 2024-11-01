@@ -208,7 +208,7 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 		logger.debug(f"process frame: index {frame_index}, processor background, processing time: {e - t:.4f} seconds", __name__)  # 打印处理时间
 
 	end_time = time.time()
-	logger.debug(f"process frame: index {frame_index}, processors {processors}, processing time: {end_time - start_time:.4f} seconds",
+	logger.info(f"process frame: index {frame_index}, processors {processors}, processing time: {end_time - start_time:.4f} seconds",
 				__name__)  # 打印处理时间
 
 	# 获取图像的宽度和高度
@@ -519,7 +519,7 @@ def create_app():
 							await websocket.send_bytes(packet)
 							e = time.time()
 							total = e - processed['start']
-							logger.debug(
+							logger.info(
 								f"Sent frame, index: {processed['frameIndex']}, w*h: {processed['width']}x{processed['height']},"
 								f"length: {processed['length']}, format: {str(processed['format'])}, send time: {e - t}, total time: {total}",
 								__name__)
