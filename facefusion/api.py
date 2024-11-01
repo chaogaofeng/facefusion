@@ -17,8 +17,6 @@ from facefusion.audio import create_empty_audio_frame
 from facefusion.face_analyser import get_many_faces, get_average_face
 from facefusion.processors.core import get_processors_modules
 
-executor = None
-
 
 def identify_image_format(image_bytes):
     # 检查文件头
@@ -287,206 +285,219 @@ def merge_images(frame, background_image):
     return combined_image
 
 app = FastAPI()
-
-@app.post('/process_image')
-async def process_image(
-    image: UploadFile = File(...),
-    water: UploadFile = File(None),
-    swap: UploadFile = File(None),
-    beautify: bool = Form(False)
-):
-    frame_data = {}
-
-    # 获取待处理图像
-    image_bytes = await image.read()  # 读取图像字节
-    frame_format = identify_image_format(image_bytes)
-    frame_data['frameIndex'] = 0
-    frame_data['width'] = 0
-    frame_data['height'] = 0
-    frame_data['format'] = frame_format
-    frame_data['data'] = image_bytes
-
-    # 获取待替换人脸图像
-    source_face = None
-    if swap:
-        image_bytes = await swap.read()  # 读取图像字节
-        try:
-            image_format = identify_image_format(image_bytes)
-            source_frame = convert_to_bitmap(0, 0, image_format, image_bytes)
-            source_faces = get_many_faces([source_frame])
-            source_face = get_average_face(source_faces)
-        except Exception as e:
-            traceback.print_exc()
-            logger.error(f"Error processing swap image: {e}", __name__)
-
-    # 获取背景图像
-    background_frame = None
-    if water:
-        image_bytes = await water.read()
-        try:
-            image_format = identify_image_format(image_bytes)
-            background_frame = convert_to_bitmap(0, 0, image_format, image_bytes)
-        except Exception as e:
-            traceback.print_exc()
-            logger.error(f"Error processing water image: {e}", __name__)
-
-    future = executor.submit(process_frame, frame_data, source_face, background_frame, beautify)
-    processed_frame = await asyncio.wrap_future(future)
-
-    return StreamingResponse(BytesIO(processed_frame['data']), media_type=image.content_type)
-
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-
-    # 创建一个缓冲区
-    buffer = bytearray()
-    # 有序字典用于保存处理后的帧数据
-    results = OrderedDict()
-    next_id_to_send = 1
-    # 设置初始参数
-    background_frame = None
-    source_face = None
-    beautify = False
-    try:
-        while True:
-            # 等待客户端请求
-            data = await websocket.receive_bytes()
-            buffer.extend(data)  # 将接收到的数据添加到缓冲区
-            logger.debug(f"Received WS {len(data)} bytes", __name__)
-            while len(buffer) >= 8:  # 至少需要 8 字节来读取包类型和数据长度
-                packet_type, data_length = struct.unpack('!II', buffer[:8])
-
-                # 检查缓冲区是否包含完整的数据包
-                if len(buffer) < 8 + data_length + 4:  # +4 是校验和的长度
-                    break  # 缓冲区不够，等待下次接收
-
-                # 提取完整的数据包
-                packet = buffer[:8 + data_length + 4]
-                buffer = buffer[8 + data_length + 4:]  # 移除已处理的数据包
-
-                # 解析数据包内容
-                content = packet[8:-4]  # 去掉包头和校验和
-                checksum = struct.unpack('!I', packet[-4:])[0]
-
-                # 校验 CRC32
-                calculated_checksum = zlib.crc32(packet[:-4])
-                if calculated_checksum != checksum:
-                    logger.error("CRC32 checksum mismatch!", __name__)
-                    continue
-
-                # 根据包类型进行处理
-                if packet_type == 0:  # 心跳包
-                    device_id_length = struct.unpack('!I', content[:4])[0]
-                    device_id = content[4:4 + device_id_length].decode('utf-8')
-                    logger.info(f"Received heartbeat from device: {device_id}")
-                    await websocket.send_bytes(struct.pack('!II', packet_type, data_length)+packet)
-                elif packet_type == 2:  # 参数更新包
-                    offset = 0
-
-                    beautify_flag = struct.unpack('!B', data[offset:offset + 1])
-                    offset += 1
-
-                    background_image_length = struct.unpack('!I', data[offset:offset + 4])[0]
-                    offset += 4
-
-                    if background_image_length > 0:
-                        background_image_data = data[offset: offset + background_image_length]
-                        offset += background_image_length
-                        try:
-                            image_format = identify_image_format(background_image_data)
-                            background_frame = convert_to_bitmap(0, 0, image_format, background_image_data)
-                        except Exception as e:
-                            traceback.print_exc()
-                            logger.error(f'Error occurred while loading background image: {e}', __name__)
-
-                    swap_image_length = struct.unpack('!I', data[offset:offset + 4])[0]
-                    offset += 4
-
-                    if swap_image_length > 0:
-                        swap_image_data = data[offset:offset + swap_image_length]
-                        offset += swap_image_length
-                        try:
-                            image_format = identify_image_format(swap_image_data)
-                            source_frame = convert_to_bitmap(0, 0, image_format, swap_image_data)
-                            source_faces = get_many_faces([source_frame])
-                            source_face = get_average_face(source_faces)
-                        except Exception as e:
-                            traceback.print_exc()
-                            logger.error(f'Error occurred while loading swap image: {e}', __name__)
-                    beautify = beautify_flag == 1
-
-                elif packet_type == 1:  # 相机帧
-                    offset = 0
-
-                    frame_index = struct.unpack('!I', content[offset:offset + 4])[0]
-                    offset += 4
-
-                    width = struct.unpack('!I', content[offset:offset + 4])[0]
-                    offset += 4
-
-                    height = struct.unpack('!I', content[offset:offset + 4])[0]
-                    offset += 4
-
-                    image_data_length = struct.unpack('!I', content[offset:offset + 4])[0]
-                    offset += 4
-
-                    image_data = None
-                    if image_data_length > 0:
-                        image_data = content[offset:offset + image_data_length]
-                        offset += image_data_length
-
-                    format_data_length = struct.unpack('!I', content[offset:offset + 4])[0]
-                    offset += 4
-
-                    format_type = ""
-                    if format_data_length > 0:
-                        format_type = content[offset:offset + format_data_length]
-                        offset += format_data_length
-
-                    print(f"Received camera frame, frame index: {frame_index},size: {width}x{height},"
-                          f"data length: {image_data_length}, format: {format_type} ")
-
-                    frame_data = {
-                        'frameIndex': frame_index,
-                        'width': width,
-                        'height': height,
-                        'data': image_data,
-                        'format': format_type,
-                    }
-
-                    future = executor.submit(process_frame, frame_data, source_face, background_frame, beautify)
-                    results[frame_index] = future  # 将 Future 按 frame_id 存入字典
-
-                    # 检查是否有按顺序完成的结果可以返回
-                    while next_id_to_send in results and results[next_id_to_send].done():
-                        processed = await asyncio.wrap_future(results[next_id_to_send])
-                        # 创建完整数据包
-                        packet_type = 1  # 相机帧类型
-                        data_content = (
-                            struct.pack('!I', processed['frameIndex']) +
-                            struct.pack('!I', processed['width']) +
-                            struct.pack('!I', processed['height']) +
-                            struct.pack('!I', processed['length']) + processed['data'],
-                        )
-                        data_length = len(data_content)
-
-                        packet = struct.pack('!II', packet_type, data_length) + data_content
-                        checksum = zlib.crc32(packet)
-                        packet += struct.pack('!I', checksum)
-
-                        # 发送处理结果
-                        await websocket.send_bytes(packet)
-                        # 移除已发送的结果，并更新下一个待发送的帧编号
-                        del results[next_id_to_send]
-                        next_id_to_send += 1
-    except WebSocketDisconnect:
-        logger.info("WebSocket disconnected", __name__)
-    except Exception as e:
-        traceback.print_exc()
-        logger.error(f"Error in WebSocket connection: {e}", __name__)
-        await websocket.close()
-
-def init_app(max_workers):
-    global executor
+def start_app():
+    port = 8005
+    if state_manager.get_item('execution_queue_count') > 1:
+        import subprocess
+        subprocess.run([
+            "uvicorn",
+            f"facefusion.api:app",
+            "--host", "0.0.0.0",
+            "--port", str(port),
+            "--workers", str(state_manager.get_item('execution_queue_count'))
+        ])
+    else:
+        uvicorn.run(app, host="0.0.0.0", port=port)
+def create_app():
+    state_manager.get_item('execution_thread_count')
     executor = ThreadPoolExecutor(max_workers=max_workers if max_workers else 4)  # 控制最大线程数
+    @app.post('/process_image')
+    async def process_image(
+        image: UploadFile = File(...),
+        water: UploadFile = File(None),
+        swap: UploadFile = File(None),
+        beautify: bool = Form(False)
+    ):
+        frame_data = {}
+
+        # 获取待处理图像
+        image_bytes = await image.read()  # 读取图像字节
+        frame_format = identify_image_format(image_bytes)
+        frame_data['frameIndex'] = 0
+        frame_data['width'] = 0
+        frame_data['height'] = 0
+        frame_data['format'] = frame_format
+        frame_data['data'] = image_bytes
+
+        # 获取待替换人脸图像
+        source_face = None
+        if swap:
+            image_bytes = await swap.read()  # 读取图像字节
+            try:
+                image_format = identify_image_format(image_bytes)
+                source_frame = convert_to_bitmap(0, 0, image_format, image_bytes)
+                source_faces = get_many_faces([source_frame])
+                source_face = get_average_face(source_faces)
+            except Exception as e:
+                traceback.print_exc()
+                logger.error(f"Error processing swap image: {e}", __name__)
+
+        # 获取背景图像
+        background_frame = None
+        if water:
+            image_bytes = await water.read()
+            try:
+                image_format = identify_image_format(image_bytes)
+                background_frame = convert_to_bitmap(0, 0, image_format, image_bytes)
+            except Exception as e:
+                traceback.print_exc()
+                logger.error(f"Error processing water image: {e}", __name__)
+
+        future = executor.submit(process_frame, frame_data, source_face, background_frame, beautify)
+        processed_frame = await asyncio.wrap_future(future)
+
+        return StreamingResponse(BytesIO(processed_frame['data']), media_type=image.content_type)
+
+    @app.websocket("/ws")
+    async def websocket_endpoint(websocket: WebSocket):
+        await websocket.accept()
+
+        # 创建一个缓冲区
+        buffer = bytearray()
+        # 有序字典用于保存处理后的帧数据
+        results = OrderedDict()
+        next_id_to_send = 1
+        # 设置初始参数
+        background_frame = None
+        source_face = None
+        beautify = False
+        try:
+            while True:
+                # 等待客户端请求
+                data = await websocket.receive_bytes()
+                buffer.extend(data)  # 将接收到的数据添加到缓冲区
+                logger.debug(f"Received WS {len(data)} bytes", __name__)
+                while len(buffer) >= 8:  # 至少需要 8 字节来读取包类型和数据长度
+                    packet_type, data_length = struct.unpack('!II', buffer[:8])
+
+                    # 检查缓冲区是否包含完整的数据包
+                    if len(buffer) < 8 + data_length + 4:  # +4 是校验和的长度
+                        break  # 缓冲区不够，等待下次接收
+
+                    # 提取完整的数据包
+                    packet = buffer[:8 + data_length + 4]
+                    buffer = buffer[8 + data_length + 4:]  # 移除已处理的数据包
+
+                    # 解析数据包内容
+                    content = packet[8:-4]  # 去掉包头和校验和
+                    checksum = struct.unpack('!I', packet[-4:])[0]
+
+                    # 校验 CRC32
+                    calculated_checksum = zlib.crc32(packet[:-4])
+                    if calculated_checksum != checksum:
+                        logger.error("CRC32 checksum mismatch!", __name__)
+                        continue
+
+                    # 根据包类型进行处理
+                    if packet_type == 0:  # 心跳包
+                        device_id_length = struct.unpack('!I', content[:4])[0]
+                        device_id = content[4:4 + device_id_length].decode('utf-8')
+                        logger.info(f"Received heartbeat from device: {device_id}")
+                        await websocket.send_bytes(struct.pack('!II', packet_type, data_length) + packet)
+                    elif packet_type == 2:  # 参数更新包
+                        offset = 0
+
+                        beautify_flag = struct.unpack('!B', data[offset:offset + 1])
+                        offset += 1
+
+                        background_image_length = struct.unpack('!I', data[offset:offset + 4])[0]
+                        offset += 4
+
+                        if background_image_length > 0:
+                            background_image_data = data[offset: offset + background_image_length]
+                            offset += background_image_length
+                            try:
+                                image_format = identify_image_format(background_image_data)
+                                background_frame = convert_to_bitmap(0, 0, image_format, background_image_data)
+                            except Exception as e:
+                                traceback.print_exc()
+                                logger.error(f'Error occurred while loading background image: {e}', __name__)
+
+                        swap_image_length = struct.unpack('!I', data[offset:offset + 4])[0]
+                        offset += 4
+
+                        if swap_image_length > 0:
+                            swap_image_data = data[offset:offset + swap_image_length]
+                            offset += swap_image_length
+                            try:
+                                image_format = identify_image_format(swap_image_data)
+                                source_frame = convert_to_bitmap(0, 0, image_format, swap_image_data)
+                                source_faces = get_many_faces([source_frame])
+                                source_face = get_average_face(source_faces)
+                            except Exception as e:
+                                traceback.print_exc()
+                                logger.error(f'Error occurred while loading swap image: {e}', __name__)
+                        beautify = beautify_flag == 1
+
+                    elif packet_type == 1:  # 相机帧
+                        offset = 0
+
+                        frame_index = struct.unpack('!I', content[offset:offset + 4])[0]
+                        offset += 4
+
+                        width = struct.unpack('!I', content[offset:offset + 4])[0]
+                        offset += 4
+
+                        height = struct.unpack('!I', content[offset:offset + 4])[0]
+                        offset += 4
+
+                        image_data_length = struct.unpack('!I', content[offset:offset + 4])[0]
+                        offset += 4
+
+                        image_data = None
+                        if image_data_length > 0:
+                            image_data = content[offset:offset + image_data_length]
+                            offset += image_data_length
+
+                        format_data_length = struct.unpack('!I', content[offset:offset + 4])[0]
+                        offset += 4
+
+                        format_type = ""
+                        if format_data_length > 0:
+                            format_type = content[offset:offset + format_data_length]
+                            offset += format_data_length
+
+                        print(f"Received camera frame, frame index: {frame_index},size: {width}x{height},"
+                              f"data length: {image_data_length}, format: {format_type} ")
+
+                        frame_data = {
+                            'frameIndex': frame_index,
+                            'width': width,
+                            'height': height,
+                            'data': image_data,
+                            'format': format_type,
+                        }
+
+                        future = executor.submit(process_frame, frame_data, source_face, background_frame, beautify)
+                        results[frame_index] = future  # 将 Future 按 frame_id 存入字典
+
+                        # 检查是否有按顺序完成的结果可以返回
+                        while next_id_to_send in results and results[next_id_to_send].done():
+                            processed = await asyncio.wrap_future(results[next_id_to_send])
+                            # 创建完整数据包
+                            packet_type = 1  # 相机帧类型
+                            data_content = (
+                                struct.pack('!I', processed['frameIndex']) +
+                                struct.pack('!I', processed['width']) +
+                                struct.pack('!I', processed['height']) +
+                                struct.pack('!I', processed['length']) + processed['data'],
+                            )
+                            data_length = len(data_content)
+
+                            packet = struct.pack('!II', packet_type, data_length) + data_content
+                            checksum = zlib.crc32(packet)
+                            packet += struct.pack('!I', checksum)
+
+                            # 发送处理结果
+                            await websocket.send_bytes(packet)
+                            # 移除已发送的结果，并更新下一个待发送的帧编号
+                            del results[next_id_to_send]
+                            next_id_to_send += 1
+        except WebSocketDisconnect:
+            logger.info("WebSocket disconnected", __name__)
+        except Exception as e:
+            traceback.print_exc()
+            logger.error(f"Error in WebSocket connection: {e}", __name__)
+            await websocket.close()
+
+    return app

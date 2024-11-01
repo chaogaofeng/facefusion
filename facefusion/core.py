@@ -7,7 +7,7 @@ import numpy
 import uvicorn
 
 from facefusion import content_analyser, face_classifier, face_detector, face_landmarker, face_masker, face_recognizer, logger, process_manager, state_manager, voice_extractor, wording
-from facefusion.api import init_app
+from facefusion.api import start_app
 from facefusion.args import apply_args, collect_job_args, reduce_step_args
 from facefusion.common_helper import get_first
 from facefusion.content_analyser import analyse_image, analyse_video
@@ -62,19 +62,7 @@ def route(args : Args) -> None:
 	if state_manager.get_item('command') == 'api':
 		if not common_pre_check() or not processors_pre_check():
 			return conditional_exit(2)
-		port = 8005
-		init_app(max_workers=state_manager.get_item('execution_thread_count'))
-		if state_manager.get_item('execution_queue_count') > 1:
-			import subprocess
-			subprocess.run([
-				"uvicorn",
-				f"facefusion.api:app",
-				"--host", "0.0.0.0",
-				"--port", str(port),
-				"--workers", str(state_manager.get_item('execution_queue_count'))
-			])
-		else:
-			uvicorn.run(app, host="0.0.0.0", port=port)
+		start_app()
 
 	if state_manager.get_item('command') == 'run':
 		import facefusion.uis.core as ui
