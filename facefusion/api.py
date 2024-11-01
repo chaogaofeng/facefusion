@@ -142,9 +142,13 @@ def bitmap_to_data(image, width, height, format_type):
 		u_plane = yuv_image[height:height + height // 4].flatten()
 		v_plane = yuv_image[height + height // 4:height + height // 2].flatten()
 
-		# 填充UV分量（交错存储）
-		nv21_image[height:, 0::2] = u_plane  # U分量
-		nv21_image[height:, 1::2] = v_plane  # V分量
+		# 在NV21中，UV分量交错存储
+		uv_plane = np.empty((height // 2, width), dtype=np.uint8)
+		uv_plane[0::2, 0::2] = u_plane.reshape((height // 4, width // 2))  # U分量放到偶数列
+		uv_plane[0::2, 1::2] = v_plane.reshape((height // 4, width // 2))  # V分量放到奇数列
+
+		# 填充UV分量到NV21图像
+		nv21_image[height:, :] = uv_plane.reshape((height // 2, width))
 
 		return nv21_image.tobytes()
 	elif format_type == "JPEG":
