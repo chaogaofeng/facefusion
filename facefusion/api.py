@@ -196,7 +196,7 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 			})
 		logger.enable()
 		e = time.time()
-		logger.debug(f"process frame: index {frame_index}, processor {processors[i]}, processing time: {e - t:.4f} seconds",
+		logger.debug(f"Processed frame: index {frame_index}, processor {processors[i]}, processing time: {e - t:.4f} seconds",
 					__name__)  # 打印处理时间
 		i += 1
 
@@ -205,10 +205,10 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 		t = time.time()
 		target_vision_frame = merge_images(target_vision_frame, background_frame)
 		e = time.time()
-		logger.debug(f"process frame: index {frame_index}, processor background, processing time: {e - t:.4f} seconds", __name__)  # 打印处理时间
+		logger.debug(f"Processed frame: index {frame_index}, processor background, processing time: {e - t:.4f} seconds", __name__)  # 打印处理时间
 
 	end_time = time.time()
-	logger.info(f"process frame: index {frame_index}, processors {processors}, processing time: {end_time - start_time:.4f} seconds",
+	logger.info(f"Processed frame: index {frame_index}, processors {processors}, processing time: {end_time - start_time:.4f} seconds",
 				__name__)  # 打印处理时间
 
 	# 获取图像的宽度和高度
@@ -223,7 +223,8 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 		"data": image_data,
 		"format": format_type,
 		"length": len(image_data),
-		"processing_time": end_time - start_time
+		"processing_time": end_time - start_time,
+		"start": frame_data.get("start")
 	}
 
 
