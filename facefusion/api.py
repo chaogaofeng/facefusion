@@ -408,6 +408,7 @@ def create_app():
 						offset += device_id_length
 
 						logger.info(f"Received heartbeat from device: {device_id}")
+						await websocket.send_bytes(packet)
 					elif packet_type == 2:  # 参数更新包
 						offset = 0
 
