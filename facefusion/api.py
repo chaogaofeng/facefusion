@@ -371,7 +371,7 @@ def create_app():
 
                     # 解析数据包内容
                     content = packet[8:-crc_len]  # 去掉包头和校验和
-                    checksum = struct.unpack('!I', packet[-4:])[0]
+                    checksum = struct.unpack('!Q', packet[-crc_len:])[0]
 
                     # 校验 CRC32
                     calculated_checksum = zlib.crc32(packet[:-crc_len]) & 0xFFFFFFFF
