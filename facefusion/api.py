@@ -12,7 +12,7 @@ import cv2
 import numpy as np
 from starlette.websockets import WebSocketDisconnect
 
-from facefusion import logger
+from facefusion import logger, state_manager
 from facefusion.audio import create_empty_audio_frame
 from facefusion.face_analyser import get_many_faces, get_average_face
 from facefusion.processors.core import get_processors_modules
@@ -385,7 +385,7 @@ def create_app():
                     # 校验 CRC32
                     calculated_checksum = zlib.crc32(packet[:-4])
                     if calculated_checksum != checksum:
-                        logger.error("CRC32 checksum mismatch!", __name__)
+                        logger.error(f"CRC32 checksum mismatch!, {checksum}, calculated: {calculated_checksum}", __name__)
                         continue
 
                     # 根据包类型进行处理
