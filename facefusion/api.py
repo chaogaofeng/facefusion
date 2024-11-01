@@ -196,24 +196,20 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 			})
 		logger.enable()
 		e = time.time()
-		logger.info(f"{frame_index}: processor {processors[i]}, processing time: {e - t:.4f} seconds",
+		logger.debug(f"process frame: index {frame_index}, processor {processors[i]}, processing time: {e - t:.4f} seconds",
 					__name__)  # 打印处理时间
 		i += 1
 
 	if background_frame is not None:
+		processors.append('background')
 		t = time.time()
 		target_vision_frame = merge_images(target_vision_frame, background_frame)
 		e = time.time()
-		logger.info(f"{frame_index}: processor background, processing time: {e - t:.4f} seconds", __name__)  # 打印处理时间
+		logger.debug(f"process frame: index {frame_index}, processor background, processing time: {e - t:.4f} seconds", __name__)  # 打印处理时间
 
 	end_time = time.time()
-	if background_frame:
-		logger.info(
-			f"{frame_index}: processors {processors} background, processing time: {end_time - start_time:.4f} seconds",
-			__name__)  # 打印处理时间
-	else:
-		logger.info(f"{frame_index}: processors {processors}, processing time: {end_time - start_time:.4f} seconds",
-					__name__)  # 打印处理时间
+	logger.debug(f"process frame: index {frame_index}, processors {processors}, processing time: {end_time - start_time:.4f} seconds",
+				__name__)  # 打印处理时间
 
 	# 获取图像的宽度和高度
 	height, width, channels = target_vision_frame.shape
