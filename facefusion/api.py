@@ -285,22 +285,7 @@ def merge_images(frame, background_image):
         combined_image = cv2.cvtColor(combined_image, cv2.COLOR_BGR2RGB)
     return combined_image
 
-app = None
-def start_app():
-    port = 8005
-    global app
-    app = create_app()
-    if state_manager.get_item('execution_queue_count') > 1:
-        import subprocess
-        subprocess.run([
-            "uvicorn",
-            f"facefusion.api:app",
-            "--host", "0.0.0.0",
-            "--port", str(port),
-            "--workers", str(state_manager.get_item('execution_queue_count'))
-        ])
-    else:
-        uvicorn.run(app, host="0.0.0.0", port=port)
+app = create_app()
 def create_app():
     app = FastAPI()
 
@@ -507,3 +492,17 @@ def create_app():
             await websocket.close()
 
     return app
+
+def start_app():
+    port = 8005
+    if state_manager.get_item('execution_queue_count') > 1:
+        import subprocess
+        subprocess.run([
+            "uvicorn",
+            f"facefusion.api:app",
+            "--host", "0.0.0.0",
+            "--port", str(port),
+            "--workers", str(state_manager.get_item('execution_queue_count'))
+        ])
+    else:
+        uvicorn.run(app, host="0.0.0.0", port=port)
