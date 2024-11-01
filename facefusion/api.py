@@ -303,7 +303,7 @@ def start_app():
 def create_app():
     app = FastAPI()
 
-    state_manager.get_item('execution_thread_count')
+    max_workers = state_manager.get_item('execution_thread_count')
     executor = ThreadPoolExecutor(max_workers=max_workers if max_workers else 4)  # 控制最大线程数
     @app.post('/process_image')
     async def process_image(
