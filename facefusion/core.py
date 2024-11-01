@@ -62,8 +62,19 @@ def route(args : Args) -> None:
 	if state_manager.get_item('command') == 'api':
 		if not common_pre_check() or not processors_pre_check():
 			return conditional_exit(2)
+		port = 8005
 		app = create_app(max_workers=state_manager.get_item('execution_thread_count'))
-		uvicorn.run(app, host="0.0.0.0", port=8005)
+		if state_manager.get_item('execution_queue_count') > 1:
+			import subprocess
+			subprocess.run([
+				"uvicorn",
+				f"api:app",
+				"--host", "0.0.0.0",
+				"--port", str(port),
+				"--workers", str(state_manager.get_item('execution_queue_count'))
+			])
+		else:
+			uvicorn.run(app, host="0.0.0.0", port=port)
 
 	if state_manager.get_item('command') == 'run':
 		import facefusion.uis.core as ui
