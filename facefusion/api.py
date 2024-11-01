@@ -535,4 +535,5 @@ def start_app():
 			"--workers", str(state_manager.get_item('execution_queue_count'))
 		])
 	else:
+		app = create_app()
 		uvicorn.run(app, host="0.0.0.0", port=port)
