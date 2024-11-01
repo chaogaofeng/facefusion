@@ -446,6 +446,9 @@ def create_app():
 						user = content[offset:offset + user_length].decode('utf-8')
 						offset += user_length
 
+						frame_index = struct.unpack('!I', content[offset:offset + 4])[0]
+						offset += 4
+
 						format_data_length = struct.unpack('!I', content[offset:offset + 4])[0]
 						offset += 4
 
@@ -453,9 +456,6 @@ def create_app():
 						if format_data_length > 0:
 							format_type = content[offset:offset + format_data_length]
 							offset += format_data_length
-
-						frame_index = struct.unpack('!I', content[offset:offset + 4])[0]
-						offset += 4
 
 						width = struct.unpack('!I', content[offset:offset + 4])[0]
 						offset += 4
