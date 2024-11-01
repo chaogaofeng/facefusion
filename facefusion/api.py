@@ -452,14 +452,14 @@ def create_app():
 					elif packet_type == 2:  # 参数更新包
 						offset = 0
 
-						beautify_flag = struct.unpack('!B', data[offset:offset + 1])
+						beautify_flag = struct.unpack('!B', content[offset:offset + 1])
 						offset += 1
 
-						background_image_length = struct.unpack('!I', data[offset:offset + 4])[0]
+						background_image_length = struct.unpack('!I', content[offset:offset + 4])[0]
 						offset += 4
 
 						if background_image_length > 0:
-							background_image_data = data[offset: offset + background_image_length]
+							background_image_data = content[offset: offset + background_image_length]
 							offset += background_image_length
 							try:
 								image_format = identify_image_format(background_image_data)
@@ -468,11 +468,11 @@ def create_app():
 								traceback.print_exc()
 								logger.error(f'Error occurred while loading background image: {e}', __name__)
 
-						swap_image_length = struct.unpack('!I', data[offset:offset + 4])[0]
+						swap_image_length = struct.unpack('!I', content[offset:offset + 4])[0]
 						offset += 4
 
 						if swap_image_length > 0:
-							swap_image_data = data[offset:offset + swap_image_length]
+							swap_image_data = content[offset:offset + swap_image_length]
 							offset += swap_image_length
 							try:
 								image_format = identify_image_format(swap_image_data)
