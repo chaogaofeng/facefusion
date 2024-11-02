@@ -362,11 +362,12 @@ def create_app():
 		results = OrderedDict()
 		next_id_to_send = None
 		send_queue = asyncio.Queue()  # 用于存储待发送的数据帧
+		stop_flag = False
 
 		async def send_loop():
 			"""异步发送队列中的数据帧"""
-			try:
-				while True:
+			while not stop_flag:
+				try:
 					processed = await send_queue.get()  # 从队列获取待发送的数据
 					# 创建完整数据包
 					packet_type = 1  # 相机帧类型
@@ -392,11 +393,13 @@ def create_app():
 						f"length: {processed['length']}, format: {str(processed['format'])}, send time: {e - t}, total time: {total}",
 						__name__)
 					send_queue.task_done()
-			except WebSocketDisconnect as e:
-				logger.info(f"WebSocket disconnected in send_loop: {e.code}", __name__)
-			except Exception as e:
-				traceback.print_exc()
-				logger.error(f"Error in send_loop: {e}", __name__)
+				except WebSocketDisconnect as e:
+					logger.info(f"WebSocket disconnected in send_loop: {e.code}", __name__)
+					break
+				except Exception as e:
+					traceback.print_exc()
+					logger.error(f"Error in send_loop: {e}", __name__)
+					break
 		# 启动发送循环
 		asyncio.create_task(send_loop())
 
@@ -547,6 +550,7 @@ def create_app():
 
 		except WebSocketDisconnect as e:
 			logger.info(f"WebSocket disconnected: {e.code}", __name__)
+			stop_flag = True
 		except Exception as e:
 			traceback.print_exc()
 			logger.error(f"Error in WebSocket connection: {e}", __name__)
