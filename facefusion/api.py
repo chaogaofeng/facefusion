@@ -365,34 +365,38 @@ def create_app():
 
 		async def send_loop():
 			"""异步发送队列中的数据帧"""
-			while True:
-				processed = await send_queue.get()  # 从队列获取待发送的数据
-				# 创建完整数据包
-				packet_type = 1  # 相机帧类型
-				data_content = (
-					struct.pack('!I', processed['frameIndex']) +
-					struct.pack('!I', processed['width']) +
-					struct.pack('!I', processed['height']) +
-					struct.pack('!I', processed['length']) + processed['data']
-				)
-				data_length = len(data_content)
+			try:
+				while True:
+					processed = await send_queue.get()  # 从队列获取待发送的数据
+					# 创建完整数据包
+					packet_type = 1  # 相机帧类型
+					data_content = (
+						struct.pack('!I', processed['frameIndex']) +
+						struct.pack('!I', processed['width']) +
+						struct.pack('!I', processed['height']) +
+						struct.pack('!I', processed['length']) + processed['data']
+					)
+					data_length = len(data_content)
 
-				packet = struct.pack('!II', packet_type, data_length) + data_content
-				checksum = zlib.crc32(data_content) & 0xFFFFFFFF
-				packet += struct.pack('!Q', checksum)
+					packet = struct.pack('!II', packet_type, data_length) + data_content
+					checksum = zlib.crc32(data_content) & 0xFFFFFFFF
+					packet += struct.pack('!Q', checksum)
 
-				# 发送处理结果
-				t = time.time()
-				await websocket.send_bytes(packet)
-				e = time.time()
-				total = e - processed['start']
-				logger.info(
-					f"Sent frame, index: {processed['frameIndex']}, w*h: {processed['width']}x{processed['height']},"
-					f"length: {processed['length']}, format: {str(processed['format'])}, send time: {e - t}, total time: {total}",
-					__name__)
-				await websocket.send_bytes(packet)
-				send_queue.task_done()
-
+					# 发送处理结果
+					t = time.time()
+					await websocket.send_bytes(packet)
+					e = time.time()
+					total = e - processed['start']
+					logger.info(
+						f"Sent frame, index: {processed['frameIndex']}, w*h: {processed['width']}x{processed['height']},"
+						f"length: {processed['length']}, format: {str(processed['format'])}, send time: {e - t}, total time: {total}",
+						__name__)
+					send_queue.task_done()
+			except WebSocketDisconnect as e:
+				logger.info(f"WebSocket disconnected in send_loop: {e.code}", __name__)
+			except Exception as e:
+				traceback.print_exc()
+				logger.error(f"Error in send_loop: {e}", __name__)
 		# 启动发送循环
 		asyncio.create_task(send_loop())
 
@@ -452,7 +456,7 @@ def create_app():
 					elif packet_type == 2:  # 参数更新包
 						offset = 0
 
-						beautify_flag = struct.unpack('!B', content[offset:offset + 1])
+						beautify_flag = struct.unpack('!B', content[offset:offset + 1])[0]
 						offset += 1
 
 						background_image_length = struct.unpack('!I', content[offset:offset + 4])[0]
