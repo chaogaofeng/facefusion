@@ -537,6 +537,9 @@ def create_app():
 						logger.debug(f"Received frame, index: {frame_index}, w*h: {width}x{height},"
 									f"length: {image_data_length}, format: {str(format_type)} ", __name__)
 
+						if image_data_length == 0:
+							continue
+
 						frame_data = {
 							'frameIndex': frame_index,
 							'width': width,
