@@ -8,6 +8,7 @@ from collections import OrderedDict
 from io import BytesIO
 from fastapi import FastAPI, File, UploadFile, Form, WebSocket
 from fastapi.responses import StreamingResponse
+from fastapi.websockets import WebSocketState
 from concurrent.futures import ThreadPoolExecutor
 import cv2
 import numpy as np
