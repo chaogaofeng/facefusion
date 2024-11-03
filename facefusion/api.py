@@ -366,9 +366,11 @@ def create_app():
 
 		async def send_loop():
 			"""异步发送队列中的数据帧"""
-			while not stop_flag:
+			while not stop_flag or not send_queue.empty():
 				try:
 					processed = await send_queue.get()  # 从队列获取待发送的数据
+					if processed is None:
+						break # 若接收到 None，跳出循环
 					# 创建完整数据包
 					packet_type = 1  # 相机帧类型
 					data_content = (
@@ -384,13 +386,13 @@ def create_app():
 					packet += struct.pack('!Q', checksum)
 
 					# 发送处理结果
-					t = time.time()
+					s = time.time()
 					await websocket.send_bytes(packet)
 					e = time.time()
 					total = e - processed['start']
 					logger.info(
 						f"Sent frame, index: {processed['frameIndex']}, w*h: {processed['width']}x{processed['height']},"
-						f"length: {processed['length']}, format: {str(processed['format'])}, send time: {e - t}, total time: {total}",
+						f"length: {processed['length']}, format: {str(processed['format'])}, send time: {e - s}, total time: {total}",
 						__name__)
 					send_queue.task_done()
 				except WebSocketDisconnect as e:
@@ -554,7 +556,8 @@ def create_app():
 		except Exception as e:
 			traceback.print_exc()
 			logger.error(f"Error in WebSocket connection: {e}", __name__)
-			await websocket.close()
+			if not websocket.application_state == WebSocketState.DISCONNECTED:
+				await websocket.close()
 
 	return app
 
