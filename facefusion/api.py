@@ -368,7 +368,7 @@ def create_app():
 			"""异步发送队列中的数据帧"""
 			while not stop_flag or not send_queue.empty():
 				try:
-					processed = await send_queue.get()  # 从队列获取待发送的数据
+					processed = await asyncio.wait_for(send_queue.get(), timeout=2)
 					if processed is None:
 						break # 若接收到 None，跳出循环
 					# 创建完整数据包
@@ -395,15 +395,15 @@ def create_app():
 						f"length: {processed['length']}, format: {str(processed['format'])}, send time: {e - s}, total time: {total}",
 						__name__)
 					send_queue.task_done()
-				except WebSocketDisconnect as e:
-					logger.info(f"WebSocket disconnected in send_loop: {e.code}", __name__)
+				except asyncio.TimeoutError:
+					continue
+				except WebSocketDisconnect:
 					break
-				except Exception as e:
+				except Exception:
 					traceback.print_exc()
-					logger.error(f"Error in send_loop: {e}", __name__)
 					break
 		# 启动发送循环
-		asyncio.create_task(send_loop())
+		send_task = asyncio.create_task(send_loop())
 
 		# 设置初始参数
 		background_frame = None
@@ -553,6 +553,8 @@ def create_app():
 		except WebSocketDisconnect as e:
 			logger.info(f"WebSocket disconnected: {e.code}", __name__)
 			stop_flag = True
+			await send_queue.put(None)
+			await send_task
 		except Exception as e:
 			traceback.print_exc()
 			logger.error(f"Error in WebSocket connection: {e}", __name__)
