@@ -456,8 +456,9 @@ def create_app():
 					# 校验 CRC32
 					calculated_checksum = zlib.crc32(content) & 0xFFFFFFFF
 					if calculated_checksum != checksum:
-						logger.error(f"CRC32 checksum mismatch {packet_type}, {checksum}, calculated: {calculated_checksum}",
-									 __name__)
+						logger.error(
+							f"CRC32 checksum mismatch {packet_type}, {checksum}, calculated: {calculated_checksum}",
+							__name__)
 						continue
 
 					# 根据包类型进行处理
@@ -508,6 +509,7 @@ def create_app():
 						beautify = beautify_flag == 1
 
 					elif packet_type == 1:  # 相机帧
+						start = time.time()
 						offset = 0
 
 						device_id_length = struct.unpack('!I', content[offset:offset + 4])[0]
@@ -548,7 +550,8 @@ def create_app():
 							offset += image_data_length
 
 						logger.debug(f"Received frame, index: {frame_index}, w*h: {width}x{height},"
-									 f"length: {image_data_length}, format: {str(format_type)} ", __name__)
+									 f"length: {image_data_length}, format: {str(format_type), time: {time.time() - start}} ",
+									 __name__)
 
 						if image_data_length == 0:
 							continue
@@ -559,7 +562,7 @@ def create_app():
 							'height': height,
 							'data': image_data,
 							'format': format_type,
-							'start': time.time(),
+							'start': start,
 						}
 
 						future = executor.submit(process_frame, frame_data, source_face, background_frame, beautify)
