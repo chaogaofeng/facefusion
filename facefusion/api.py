@@ -362,14 +362,14 @@ def create_app():
 		# 有序字典用于保存处理后的帧数据
 		results = OrderedDict()
 		next_id_to_send = None
-		send_queue = asyncio.Queue()  # 用于存储待发送的数据帧
+		send_queue = asyncio.Queue(maxsize=10)  # 用于存储待发送的数据帧
 		stop_flag = False
 
 		async def send_loop():
 			"""异步发送队列中的数据帧"""
 			while not stop_flag:
 				try:
-					processed = await asyncio.wait_for(send_queue.get(), timeout=2)
+					processed = await asyncio.wait_for(send_queue.get(), timeout=5)
 					if processed is None:
 						break # 若接收到 None，跳出循环
 					# 创建完整数据包
