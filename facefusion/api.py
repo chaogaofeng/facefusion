@@ -396,12 +396,16 @@ def create_app():
 						f"length: {processed['length']}, format: {str(processed['format'])}, send time: {e - s}, total time: {total}",
 						__name__)
 					send_queue.task_done()
+					await asyncio.sleep(0.01)  # 添加小延时缓解缓冲区负载
 				except asyncio.TimeoutError:
+					logger.debug(f"send_loop exit: timeout", __name__)
 					continue
 				except WebSocketDisconnect:
+					logger.debug(f"send_loop exit: disconnect", __name__)
 					break
 				except Exception:
 					traceback.print_exc()
+					logger.debug(f"send_loop exit: exception", __name__)
 					break
 			logger.debug(f"send_loop exit", __name__)
 
