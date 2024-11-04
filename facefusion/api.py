@@ -396,10 +396,10 @@ def create_app():
 					# 	await websocket.send_bytes(chunk)
 					await websocket.send_bytes(packet_t)
 					e_t = time.time()
-					total = e_t - processed['start']
+					total = e_t - processed_t['start']
 					logger.info(
-						f"Sent frame, index: {processed['frameIndex']}, w*h: {processed['width']}x{processed['height']},"
-						f"length: {processed['length']}, format: {str(processed['format'])}, send time: {e_t - s_t}, total time: {total}",
+						f"Sent frame, index: {processed_t['frameIndex']}, w*h: {processed_t['width']}x{processed_t['height']},"
+						f"length: {processed_t['length']}, format: {str(processed_t['format'])}, send time: {e_t - s_t}, total time: {total}",
 						__name__)
 					send_queue.task_done()
 					await asyncio.sleep(0.01)  # 添加小延时缓解缓冲区负载
@@ -426,8 +426,32 @@ def create_app():
 			while True:
 				# 检查是否有按顺序完成的结果可以返回
 				while next_id_to_send in results and results[next_id_to_send].done():
-					processed = await asyncio.wrap_future(results[next_id_to_send])
-					await send_queue.put(processed)
+					processed_t = await asyncio.wrap_future(results[next_id_to_send])
+					# await send_queue.put(processed)
+					# 创建完整数据包
+					data_content = (
+						struct.pack('!I', processed_t['frameIndex']) +
+						struct.pack('!I', processed_t['width']) +
+						struct.pack('!I', processed_t['height']) +
+						struct.pack('!I', processed_t['length']) + processed_t['data']
+					)
+
+					packet_t = struct.pack('!II', 1, len(data_content)) + data_content
+					checksum_t = zlib.crc32(data_content) & 0xFFFFFFFF
+					packet_t += struct.pack('!Q', checksum_t)
+
+					# 发送处理结果
+					s_t = time.time()
+					# for i in range(0, len(packet_t), MAX_CHUNK_SIZE):
+					# 	chunk = packet_t[i:i + MAX_CHUNK_SIZE]
+					# 	await websocket.send_bytes(chunk)
+					await websocket.send_bytes(packet_t)
+					e_t = time.time()
+					total = e_t - processed_t['start']
+					logger.info(
+						f"Sent frame, index: {processed_t['frameIndex']}, w*h: {processed_t['width']}x{processed_t['height']},"
+						f"length: {processed_t['length']}, format: {str(processed_t['format'])}, send time: {e_t - s_t}, total time: {total}",
+						__name__)
 					# 移除已发送的结果，并更新下一个待发送的帧编号
 					del results[next_id_to_send]
 					next_id_to_send += 1
