@@ -436,6 +436,7 @@ def create_app():
 				logger.debug(f"Received data: length {len(data)}", __name__)
 				while len(buffer) >= 8:  # 至少需要 8 字节来读取包类型和数据长度
 					packet_type, data_length = struct.unpack('!II', buffer[:8])
+					logger.debug(f"Received data: packet type {packet_type}, data length {data_length}", __name__)
 
 					crc_len = 8
 					# 检查缓冲区是否包含完整的数据包
