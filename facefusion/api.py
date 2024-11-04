@@ -391,10 +391,10 @@ def create_app():
 
 					# 发送处理结果
 					s_t = time.time()
-					for i in range(0, len(packet_t), MAX_CHUNK_SIZE):
-						chunk = packet_t[i:i + MAX_CHUNK_SIZE]
-						await websocket.send_bytes(chunk)
-					# await websocket.send_bytes(packet_t)
+					# for i in range(0, len(packet_t), MAX_CHUNK_SIZE):
+					# 	chunk = packet_t[i:i + MAX_CHUNK_SIZE]
+					# 	await websocket.send_bytes(chunk)
+					await websocket.send_bytes(packet_t)
 					e_t = time.time()
 					total = e_t - processed['start']
 					logger.info(
