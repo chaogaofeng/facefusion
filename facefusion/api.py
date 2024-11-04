@@ -562,7 +562,9 @@ def create_app():
 		except Exception as e:
 			traceback.print_exc()
 			logger.error(f"Error in WebSocket connection: {e}", __name__)
+		finally:
 			if not websocket.application_state == WebSocketState.DISCONNECTED:
+				logger.debug(f"WebSocket close", __name__)
 				await websocket.close()
 
 	return app
