@@ -550,7 +550,7 @@ def create_app():
 							offset += image_data_length
 
 						logger.debug(f"Received frame, index: {frame_index}, w*h: {width}x{height},"
-									 f"length: {image_data_length}, format: {str(format_type), time: {time.time() - start}} ",
+									 f"length: {image_data_length}, format: {str(format_type)}, time: {time.time() - start} ",
 									 __name__)
 
 						if image_data_length == 0:
