@@ -197,8 +197,9 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 			})
 		logger.enable()
 		e = time.time()
-		logger.debug(f"Processed frame: index {frame_index}, processor {processors[i]}, processing time: {e - t:.4f} seconds",
-					__name__)  # 打印处理时间
+		logger.debug(
+			f"Processed frame: index {frame_index}, processor {processors[i]}, processing time: {e - t:.4f} seconds",
+			__name__)  # 打印处理时间
 		i += 1
 
 	if background_frame is not None:
@@ -206,11 +207,14 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 		t = time.time()
 		target_vision_frame = merge_images(target_vision_frame, background_frame)
 		e = time.time()
-		logger.debug(f"Processed frame: index {frame_index}, processor background, processing time: {e - t:.4f} seconds", __name__)  # 打印处理时间
+		logger.debug(
+			f"Processed frame: index {frame_index}, processor background, processing time: {e - t:.4f} seconds",
+			__name__)  # 打印处理时间
 
 	end_time = time.time()
-	logger.info(f"Processed frame: index {frame_index}, processors {processors}, processing time: {end_time - start_time:.4f} seconds",
-				__name__)  # 打印处理时间
+	logger.info(
+		f"Processed frame: index {frame_index}, processors {processors}, processing time: {end_time - start_time:.4f} seconds",
+		__name__)  # 打印处理时间
 
 	# 获取图像的宽度和高度
 	height, width, channels = target_vision_frame.shape
@@ -371,7 +375,7 @@ def create_app():
 				try:
 					processed = await asyncio.wait_for(send_queue.get(), timeout=5)
 					if processed is None:
-						break # 若接收到 None，跳出循环
+						break  # 若接收到 None，跳出循环
 					# 创建完整数据包
 					packet_type = 1  # 相机帧类型
 					data_content = (
@@ -541,7 +545,7 @@ def create_app():
 							offset += image_data_length
 
 						logger.debug(f"Received frame, index: {frame_index}, w*h: {width}x{height},"
-									f"length: {image_data_length}, format: {str(format_type)} ", __name__)
+									 f"length: {image_data_length}, format: {str(format_type)} ", __name__)
 
 						if image_data_length == 0:
 							continue
@@ -559,6 +563,8 @@ def create_app():
 						results[frame_index] = future  # 将 Future 按 frame_id 存入字典
 						if next_id_to_send is None:
 							next_id_to_send = frame_index
+					else:
+						logger.warn(f"Received packet type {packet_type}")
 
 		except WebSocketDisconnect as e:
 			logger.info(f"WebSocket disconnected: {e.code}", __name__)
