@@ -367,7 +367,7 @@ def create_app():
 
 		async def send_loop():
 			"""异步发送队列中的数据帧"""
-			while not stop_flag or not send_queue.empty():
+			while not stop_flag:
 				try:
 					processed = await asyncio.wait_for(send_queue.get(), timeout=2)
 					if processed is None:
