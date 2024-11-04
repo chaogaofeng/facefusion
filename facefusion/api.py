@@ -373,31 +373,29 @@ def create_app():
 			"""异步发送队列中的数据帧"""
 			while not stop_flag:
 				try:
-					processed = await asyncio.wait_for(send_queue.get(), timeout=5)
-					if processed is None:
+					processed_t = await asyncio.wait_for(send_queue.get(), timeout=5)
+					if processed_t is None:
 						break  # 若接收到 None，跳出循环
 					# 创建完整数据包
-					packet_type = 1  # 相机帧类型
 					data_content = (
-						struct.pack('!I', processed['frameIndex']) +
-						struct.pack('!I', processed['width']) +
-						struct.pack('!I', processed['height']) +
-						struct.pack('!I', processed['length']) + processed['data']
+						struct.pack('!I', processed_t['frameIndex']) +
+						struct.pack('!I', processed_t['width']) +
+						struct.pack('!I', processed_t['height']) +
+						struct.pack('!I', processed_t['length']) + processed_t['data']
 					)
-					data_length = len(data_content)
 
-					packet = struct.pack('!II', packet_type, data_length) + data_content
-					checksum = zlib.crc32(data_content) & 0xFFFFFFFF
-					packet += struct.pack('!Q', checksum)
+					packet_t = struct.pack('!II', 1, len(data_content)) + data_content
+					checksum_t = zlib.crc32(data_content) & 0xFFFFFFFF
+					packet_t += struct.pack('!Q', checksum_t)
 
 					# 发送处理结果
-					s = time.time()
-					await websocket.send_bytes(packet)
-					e = time.time()
-					total = e - processed['start']
+					s_t = time.time()
+					await websocket.send_bytes(packet_t)
+					e_t = time.time()
+					total = e_t - processed['start']
 					logger.info(
 						f"Sent frame, index: {processed['frameIndex']}, w*h: {processed['width']}x{processed['height']},"
-						f"length: {processed['length']}, format: {str(processed['format'])}, send time: {e - s}, total time: {total}",
+						f"length: {processed['length']}, format: {str(processed['format'])}, send time: {e_t - s_t}, total time: {total}",
 						__name__)
 					send_queue.task_done()
 					await asyncio.sleep(0.01)  # 添加小延时缓解缓冲区负载
