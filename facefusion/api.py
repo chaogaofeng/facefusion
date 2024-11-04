@@ -404,7 +404,7 @@ def create_app():
 					send_queue.task_done()
 					await asyncio.sleep(0.01)  # 添加小延时缓解缓冲区负载
 				except asyncio.TimeoutError:
-					logger.debug(f"send_loop exit: timeout", __name__)
+					# logger.debug(f"send_loop exit: timeout", __name__)
 					continue
 				except WebSocketDisconnect:
 					logger.debug(f"send_loop exit: disconnect", __name__)
