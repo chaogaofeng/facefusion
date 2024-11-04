@@ -453,7 +453,7 @@ def create_app():
 					# 校验 CRC32
 					calculated_checksum = zlib.crc32(content) & 0xFFFFFFFF
 					if calculated_checksum != checksum:
-						logger.error(f"CRC32 checksum mismatch!, {checksum}, calculated: {calculated_checksum}",
+						logger.error(f"CRC32 checksum mismatch {packet_type}, {checksum}, calculated: {calculated_checksum}",
 									 __name__)
 						continue
 
