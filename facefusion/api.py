@@ -368,6 +368,7 @@ def create_app():
 		next_id_to_send = None
 		send_queue = asyncio.Queue(maxsize=10)  # 用于存储待发送的数据帧
 		stop_flag = False
+		MAX_CHUNK_SIZE = 512 * 1024  # 512KB
 
 		async def send_loop():
 			"""异步发送队列中的数据帧"""
@@ -390,7 +391,10 @@ def create_app():
 
 					# 发送处理结果
 					s_t = time.time()
-					await websocket.send_bytes(packet_t)
+					for i in range(0, len(packet_t), MAX_CHUNK_SIZE):
+						chunk = packet_t[i:i + MAX_CHUNK_SIZE]
+						await websocket.send_bytes(chunk)
+					# await websocket.send_bytes(packet_t)
 					e_t = time.time()
 					total = e_t - processed['start']
 					logger.info(
