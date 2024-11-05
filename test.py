@@ -1,9 +1,11 @@
 import asyncio
+import os
 import struct
 import time
 import zlib
 
 import cv2
+import numpy as np
 import psutil
 import websockets
 
@@ -37,7 +39,6 @@ async def send_camera_frame(websocket, frame_index, frame):
 	# 将图像帧编码为 JPEG 格式
 	_, image_data = cv2.imencode('.jpg', frame)
 	image_data = image_data.tobytes()
-	print("=======")
 
 	# image_data = b'\x09' * 1024 * 1024 * 4
 
@@ -49,7 +50,6 @@ async def send_camera_frame(websocket, frame_index, frame):
 	device_id_bytes = device_id.encode('utf-8')
 	user_bytes = user.encode('utf-8')
 	format_bytes = format_type.encode('utf-8')
-	print(len(image_data))
 
 	packet_data = (
 		struct.pack('!I', len(device_id_bytes)) + device_id_bytes +
@@ -62,6 +62,55 @@ async def send_camera_frame(websocket, frame_index, frame):
 	)
 
 	await send_packet(websocket, packet_type=1, data=packet_data)
+
+
+# Receiving frames and saving them
+async def receive_frame(websocket):
+	try:
+		# Receive a packet from the WebSocket
+		packet = await websocket.recv()
+
+		# Extract the header information
+		packet_type, data_length = struct.unpack('!II', packet[:8])
+		data = packet[8:-8]  # Exclude header and checksum
+		checksum_received = struct.unpack('!Q', packet[-8:])[0]
+
+		# Validate checksum
+		checksum_calculated = zlib.crc32(data) & 0xFFFFFFFF
+		if checksum_received != checksum_calculated:
+			print("Checksum mismatch!")
+			return
+
+		# Process the received data if it's an image frame
+		if packet_type == 1:
+			# Unpack the data
+			offset = 0
+			frame_index = struct.unpack('!I', data[offset:offset + 4])[0]
+			offset += 4
+			width = struct.unpack('!I', data[offset:offset + 4])[0]
+			offset += 4
+			height = struct.unpack('!I', data[offset:offset + 4])[0]
+			offset += 4
+			image_len = struct.unpack('!I', data[offset:offset + 4])[0]
+			offset += 4
+			image_data = data[offset:offset + image_len]
+
+			# Save the received frame to disk
+			frame_image = cv2.imdecode(np.frombuffer(image_data, np.uint8), cv2.IMREAD_COLOR)
+			os.makedirs('images', exist_ok=True)
+			if frame_image is not None:
+				filename = f"images/frame_{frame_index}.jpg"
+				cv2.imwrite(filename, frame_image)
+				print(f"Saved frame {frame_index} to {filename}, length: {len(image_data)}")
+			else:
+				print(f"Failed to decode frame {frame_index}")
+		else:
+			print(f"Received packet type {packet_type}, but it's not an image frame.")
+	except websockets.exceptions.ConnectionClosed:
+		print("WebSocket connection closed.")
+
+	except Exception as e:
+		print(f"Error receiving frame: {e}")
 
 
 async def main():
@@ -77,21 +126,29 @@ async def main():
 	uri = "ws://36.133.28.180:8005/ws"  # 替换为你的 WebSocket 服务器地址
 	async with websockets.connect(uri) as websocket:
 		frameIndex = 0
-		capture_frame = None
 		while True:
 			# if capture_frame is None:
 			_, capture_frame = webcam_capture.read()
 			frameIndex += 1
-			# await heartbeat(websocket)
 			t = time.time()
 			await send_camera_frame(websocket, frameIndex, capture_frame)
 			e = time.time()
-			process = psutil.Process()
-			# 获取内存信息
-			mem_info = process.memory_info()
-			print("======", "frameIndex", frameIndex, "send time", e - t)
-			print(f"RSS: {mem_info.rss / 1024 / 1024} M")
-			print(f"VMS: {mem_info.vms / 1024 / 1024} M")
+			print("capture_frame", "frameIndex", frameIndex, "send time", e - t)
+
+			if frameIndex > 1:
+				t = time.time()
+				await receive_frame(websocket)
+				e = time.time()
+				print("capture_frame", "frameIndex", frameIndex, "recv time", e - t)
+
+
+			# process = psutil.Process()
+			# # 获取内存信息
+			# mem_info = process.memory_info()
+			# print(f"RSS: {mem_info.rss / 1024 / 1024} M")
+			# print(f"VMS: {mem_info.vms / 1024 / 1024} M")
+			#
+			# time.sleep(0.1)
 
 
 if __name__ == '__main__':
