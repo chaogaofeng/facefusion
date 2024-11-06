@@ -464,6 +464,7 @@ def create_app():
 					buffer.extend(data)  # 将接收到的数据添加到缓冲区
 					logger.debug(f"Received data: length {len(data)}", __name__)
 				except asyncio.TimeoutError:
+					await websocket.send_bytes(b'ping')
 					logger.info("Timeout reached while waiting for recv data", __name__)
 
 				while len(buffer) >= 8:  # 至少需要 8 字节来读取包类型和数据长度
