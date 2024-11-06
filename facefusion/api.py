@@ -483,7 +483,7 @@ def create_app():
 						logger.error(
 							f"CRC32 checksum mismatch {packet_type}, {checksum}, calculated: {calculated_checksum}",
 							__name__)
-						continue
+						# continue
 
 					# 根据包类型进行处理
 					if packet_type == 0:  # 心跳包
@@ -497,6 +497,7 @@ def create_app():
 
 						logger.debug(f"Received heartbeat: device {device_id}", __name__)
 						await websocket.send_bytes(packet)
+						logger.debug(f"Sent heartbeat: device {device_id}", __name__)
 					elif packet_type == 2:  # 参数更新包
 						offset = 0
 
