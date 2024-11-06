@@ -457,9 +457,15 @@ def create_app():
 					next_id_to_send += 1
 
 				# 等待客户端请求
-				data = await websocket.receive_bytes()
-				buffer.extend(data)  # 将接收到的数据添加到缓冲区
-				logger.debug(f"Received data: length {len(data)}", __name__)
+				try:
+					# data = await websocket.receive_bytes()
+					# 设置超时，单位为秒
+					data = await asyncio.wait_for(websocket.receive_bytes(), 5)
+					buffer.extend(data)  # 将接收到的数据添加到缓冲区
+					logger.debug(f"Received data: length {len(data)}", __name__)
+				except asyncio.TimeoutError:
+					logger.info("Timeout reached while waiting for recv data", __name__)
+
 				while len(buffer) >= 8:  # 至少需要 8 字节来读取包类型和数据长度
 					packet_type, data_length = struct.unpack('!II', buffer[:8])
 					logger.debug(f"Received data: packet type {packet_type}, data length {data_length}", __name__)
