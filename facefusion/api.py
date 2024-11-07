@@ -638,4 +638,4 @@ def start_app():
 		])
 	else:
 		app = create_app()
-		uvicorn.run(app, host="0.0.0.0", port=port)
+		uvicorn.run(app, host="0.0.0.0", port=port, ws_max_size=33554432, ws_ping_interval=60, ws_ping_timeout=60)
