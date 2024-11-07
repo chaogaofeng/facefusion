@@ -605,7 +605,7 @@ def create_app():
 						if next_id_to_send is None:
 							next_id_to_send = frame_index
 					else:
-						logger.warn(f"Received packet type {packet_type}")
+						logger.warn(f"Received unknown packet type {packet_type}", __name__)
 
 		except WebSocketDisconnect as e:
 			logger.info(f"WebSocket disconnected: {e.code}", __name__)
