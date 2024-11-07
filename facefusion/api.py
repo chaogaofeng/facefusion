@@ -402,18 +402,18 @@ def create_app():
 						f"length: {processed_t['length']}, format: {str(processed_t['format'])}, send time: {e_t - s_t}, total time: {total}",
 						__name__)
 					send_queue.task_done()
-					await asyncio.sleep(0.01)  # 添加小延时缓解缓冲区负载
+					# await asyncio.sleep(0.01)  # 添加小延时缓解缓冲区负载
 				except asyncio.TimeoutError:
 					# logger.debug(f"send_loop exit: timeout", __name__)
 					continue
 				except WebSocketDisconnect:
-					logger.debug(f"send_loop exit: disconnect", __name__)
+					# logger.debug(f"send_loop exit: disconnect", __name__)
 					break
 				except Exception:
 					traceback.print_exc()
-					logger.debug(f"send_loop exit: exception", __name__)
+					# logger.debug(f"send_loop exit: exception", __name__)
 					break
-			logger.debug(f"send_loop exit", __name__)
+			logger.info(f"send_loop exit", __name__)
 
 		# 启动发送循环
 		send_task = asyncio.create_task(send_loop())
@@ -428,7 +428,9 @@ def create_app():
 				while next_id_to_send in results and results[next_id_to_send].done():
 					processed_t = await asyncio.wrap_future(results[next_id_to_send])
 					# await send_queue.put(processed)
-					# 创建完整数据包
+
+					# 发送处理结果
+					s_t = time.time()
 					data_content = (
 						struct.pack('!I', processed_t['frameIndex']) +
 						struct.pack('!I', processed_t['width']) +
@@ -440,8 +442,6 @@ def create_app():
 					checksum_t = zlib.crc32(data_content) & 0xFFFFFFFF
 					packet_t += struct.pack('!Q', checksum_t)
 
-					# 发送处理结果
-					s_t = time.time()
 					# for i in range(0, len(packet_t), MAX_CHUNK_SIZE):
 					# 	chunk = packet_t[i:i + MAX_CHUNK_SIZE]
 					# 	await websocket.send_bytes(chunk)
@@ -475,7 +475,6 @@ def create_app():
 					crc_len = 8
 					# 检查缓冲区是否包含完整的数据包
 					if len(buffer) < 8 + data_length + crc_len:  # +4 是校验和的长度
-						logger.debug(f"Wait data: packet type {packet_type}, data length {data_length}, already need {len(buffer) - (8 + data_length + crc_len)}", __name__)
 						break  # 缓冲区不够，等待下次接收
 
 					logger.debug(f"Received data: packet type {packet_type}, data length {data_length}", __name__)
@@ -506,7 +505,6 @@ def create_app():
 						device_id = content[offset:offset + device_id_length].decode('utf-8')
 						offset += device_id_length
 
-						logger.debug(f"Received heartbeat: device {device_id}", __name__)
 						await websocket.send_bytes(packet)
 						logger.debug(f"Sent heartbeat: device {device_id}", __name__)
 					elif packet_type == 2:  # 参数更新包
@@ -585,7 +583,7 @@ def create_app():
 							image_data = content[offset:offset + image_data_length]
 							offset += image_data_length
 
-						logger.debug(f"Received frame, index: {frame_index}, w*h: {width}x{height},"
+						logger.info(f"Received frame, index: {frame_index}, w*h: {width}x{height},"
 									 f"length: {image_data_length}, format: {str(format_type)}, time: {time.time() - start} ",
 									 __name__)
 
@@ -618,7 +616,7 @@ def create_app():
 			logger.error(f"Error in WebSocket connection: {e}", __name__)
 		finally:
 			if not stop_flag:
-				logger.debug(f"webSocket exit", __name__)
+				logger.info(f"webSocket exit", __name__)
 				await websocket.close()
 
 	return app
