@@ -463,7 +463,7 @@ def create_app():
 					data = await asyncio.wait_for(websocket.receive_bytes(), 0.1)
 					if len(data) > 0:
 						buffer.extend(data)  # 将接收到的数据添加到缓冲区
-						logger.debug(f"Received data: length {len(data)}", __name__)
+						logger.debug(f"Received data:  recv {len(data)}, total {len(buffer)}", __name__)
 				except asyncio.TimeoutError:
 					pass
 					# logger.info(f"Timeout reached while waiting for recv data", __name__)
@@ -474,6 +474,7 @@ def create_app():
 					crc_len = 8
 					# 检查缓冲区是否包含完整的数据包
 					if len(buffer) < 8 + data_length + crc_len:  # +4 是校验和的长度
+						logger.debug(f"Wait data: packet type {packet_type}, data length {data_length} < {len(buffer)}", __name__)
 						break  # 缓冲区不够，等待下次接收
 
 					logger.debug(f"Received data: packet type {packet_type}, data length {data_length}", __name__)
