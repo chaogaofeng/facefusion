@@ -461,7 +461,7 @@ def create_app():
 					# data = await websocket.receive_bytes()
 					# 设置超时，单位为秒
 					data = await asyncio.wait_for(websocket.receive_bytes(), 0.1)
-					if not data or len(data) == 0:
+					if not data:
 						continue
 					buffer.extend(data)  # 将接收到的数据添加到缓冲区
 					logger.debug(f"Received data:  recv {len(data)}, total {len(buffer)}", __name__)
