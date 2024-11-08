@@ -203,13 +203,17 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 		i += 1
 
 	if background_frame is not None:
-		processors.append('background')
-		t = time.time()
-		target_vision_frame = merge_images(target_vision_frame, background_frame)
-		e = time.time()
-		logger.debug(
-			f"Processed frame: index {frame_index}, processor background, processing time: {e - t:.4f} seconds",
-			__name__)  # 打印处理时间
+		try:
+			processors.append('background')
+			t = time.time()
+			target_vision_frame = merge_images(target_vision_frame, background_frame)
+			e = time.time()
+			logger.debug(
+				f"Processed frame: index {frame_index}, processor background, processing time: {e - t:.4f} seconds",
+				__name__)  # 打印处理时间
+		except Exception as e:
+			logger.error(f"background_frame error: {e}", __name__)
+
 
 	end_time = time.time()
 	logger.info(
