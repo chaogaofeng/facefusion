@@ -214,7 +214,6 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 		except Exception as e:
 			logger.error(f"background_frame error: {e}", __name__)
 
-
 	end_time = time.time()
 	logger.info(
 		f"Processed frame: index {frame_index}, processors {processors}, processing time: {end_time - start_time:.4f} seconds",
@@ -237,73 +236,24 @@ def process_frame(frame_data, source_face=None, background_frame=None, beautify=
 	}
 
 
-def merge_images(frame, background_image):
-	# 确保主图像是 RGB 格式
-	if len(frame.shape) == 2:  # 如果主图像是灰度图
-		frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+def merge_images(frame, background_frame, alpha=0.5, beta=0.5):
+	# 调整背景图像大小与前景图像一致
+	height, width = frame.shape[:2]
+	background_resized = cv2.resize(background_frame, (width, height))
 
-	# 检查背景图像的通道数
-	if len(background_image.shape) == 2:  # 如果背景图像是灰度图
-		background_image = cv2.cvtColor(background_image, cv2.COLOR_GRAY2BGR)
+	# 确保通道数一致
+	if len(frame.shape) != len(background_resized.shape):
+		if len(frame.shape) == 3 and len(background_resized.shape) == 2:
+			background_resized = cv2.cvtColor(background_resized, cv2.COLOR_GRAY2BGR)
+		elif len(frame.shape) == 2 and len(background_resized.shape) == 3:
+			frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
 
-	# 获取主图像的通道数
-	frame_channels = frame.shape[2]
-	is_rgba_frame = (frame_channels == 4)
+	# 确保数据类型一致
+	frame = frame.astype(np.uint8)
+	background_resized = background_resized.astype(np.uint8)
 
-	# 调整背景图像的通道数
-	if frame_channels == 3:  # 如果主图像是 RGB（3 通道）
-		if background_image.shape[2] == 4:  # 如果背景是 RGBA（4 通道）
-			background_image = cv2.cvtColor(background_image, cv2.COLOR_RGBA2RGB)  # 转换为 RGB
-		elif background_image.shape[2] != 3:  # 如果背景不是 RGB
-			raise ValueError("Background image must be in RGB or RGBA format.")
-	elif frame_channels == 4:  # 如果主图像是 RGBA（4 通道）
-		if background_image.shape[2] == 3:  # 如果背景是 RGB（3 通道）
-			# 将背景图像转换为 RGBA
-			background_image = cv2.cvtColor(background_image, cv2.COLOR_RGB2RGBA)
-		elif background_image.shape[2] != 4:  # 如果背景不是 RGBA
-			raise ValueError("Background image must be in RGB or RGBA format.")
-
-	# 获取主图像的尺寸
-	frame_height, frame_width = frame.shape[:2]
-
-	# 获取背景图像的尺寸
-	bg_height, bg_width = background_image.shape[:2]
-
-	if bg_height < frame_height and bg_width < frame_width:
-		# 如果背景图像小，则复制背景图像多次
-		# 计算需要的行数和列数
-		rows = (frame_height // bg_height) + 1
-		cols = (frame_width // bg_width) + 1
-
-		# 创建一个足够大的图像以容纳所有背景
-		tiled_background = np.tile(background_image, (rows, cols, 1))
-
-		# 截取与主图像相同大小的区域
-		background_resized = tiled_background[:frame_height, :frame_width]
-
-	else:
-		# 如果背景图像大，则截取部分
-		background_resized = background_image[:frame_height, :frame_width]
-
-	# # 将背景图像调整为与主图像相同的大小
-	# background_resized = cv2.resize(background_image, (frame.shape[1], frame.shape[0]))
-
-	# 确保两幅图像都具有相同的通道数
-	if frame.shape[2] != background_resized.shape[2]:
-		raise ValueError("The number of channels in the frame and background image must match.")
-
-	# 使用 addWeighted 函数合并两幅图像
-	alpha = 0.7  # 主图像的透明度
-	beta = 0.3  # 背景图像的透明度
+	# 合并图像
 	combined_image = cv2.addWeighted(frame, alpha, background_resized, beta, 0)
-
-	# 确保返回的图像格式与主图像格式一致
-	if is_rgba_frame:
-		# 如果原图是 RGBA，则将合并结果转换为 RGBA
-		combined_image = cv2.cvtColor(combined_image, cv2.COLOR_RGB2RGBA)
-	else:
-		# 如果原图是 RGB，则确保结果是 RGB
-		combined_image = cv2.cvtColor(combined_image, cv2.COLOR_BGR2RGB)
 	return combined_image
 
 
@@ -588,8 +538,8 @@ def create_app():
 							offset += image_data_length
 
 						logger.info(f"Received frame, index: {frame_index}, w*h: {width}x{height},"
-									 f"length: {image_data_length}, format: {str(format_type)}, time: {time.time() - start} ",
-									 __name__)
+									f"length: {image_data_length}, format: {str(format_type)}, time: {time.time() - start} ",
+									__name__)
 
 						if image_data_length == 0:
 							continue
