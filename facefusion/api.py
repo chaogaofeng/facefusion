@@ -12,6 +12,7 @@ from fastapi.websockets import WebSocketState
 from concurrent.futures import ThreadPoolExecutor
 import cv2
 import numpy as np
+import ffmpeg
 from starlette.websockets import WebSocketDisconnect
 
 from facefusion import logger, state_manager
@@ -36,6 +37,51 @@ def identify_image_format(image_bytes):
 		raise ValueError(f"不支持的图像格式 {image_bytes[:20]}")
 
 
+def encode_h265(image, fps=30):
+	"""
+	将图像数据压缩为 H.265 格式并返回字节流。
+	:param image: 输入图像（NumPy 数组）
+	:param fps: 视频帧率
+	:return: H.265 压缩数据的字节流
+	"""
+
+	try:
+		height, width, _ = image.shape
+		# 使用 FFmpeg 压缩图像为 H.265 格式，并将输出流重定向到内存
+		out, _ = (
+			ffmpeg
+			.input('pipe:0', framerate=fps, format='rawvideo', pix_fmt='bgr24', s=f'{width}x{height}')
+			.output('pipe:1', vcodec='libx265')  # 输出到内存流，而不是文件
+			.run(input=image.tobytes())
+		)
+		return out  # 返回压缩后的字节流
+	except Exception as e:
+		raise ValueError(f"H.265 压缩失败: {e}")
+
+
+def decode_h265(h265_bytes, width, height):
+	"""
+	从 H.265 压缩字节流解码并返回图像（BGR 格式）。
+	:param h265_bytes: H.265 压缩字节流
+	:param width: 图像宽度
+	:param height: 图像高度
+	:return: 解码后的图像（NumPy 数组）
+	"""
+	try:
+		# 使用 FFmpeg 解码 H.265 数据
+		out, _ = (
+			ffmpeg
+			.input('pipe:0')
+			.output('pipe:1', format='rawvideo', pix_fmt='bgr24', s=f'{width}x{height}')
+			.run(input=h265_bytes)
+		)
+		# 将字节流转换为 NumPy 数组表示的图像
+		image = np.frombuffer(out, dtype=np.uint8).reshape((height, width, 3))
+		return image
+	except Exception as e:
+		raise ValueError(f"H.265 解码失败: {e}")
+
+
 def convert_to_bitmap(width, height, format_type, data):
 	# 常见格式处理：
 	# RGBA_8888 = 1
@@ -53,7 +99,9 @@ def convert_to_bitmap(width, height, format_type, data):
 	if isinstance(format_type, bytearray):
 		format_type = format_type.decode('utf-8')
 
-	if format_type == "RGBA_8888":
+	if format_type == "H265":
+		image = decode_h265(data, width, height)
+	elif format_type == "RGBA_8888":
 		if len(data) != width * height * 4:
 			raise ValueError("数据长度与图像尺寸不匹配")
 		image_array = np.frombuffer(data, dtype=np.uint8).reshape((height, width, 4))
@@ -114,7 +162,9 @@ def bitmap_to_data(image, width, height, format_type):
 	if isinstance(format_type, bytearray):
 		format_type = format_type.decode('utf-8')
 
-	if format_type == "RGBA_8888":
+	if format_type == "H265":
+		return encode_h265(image, fps=30)
+	elif format_type == "RGBA_8888":
 		image_array = cv2.cvtColor(image, cv2.COLOR_BGR2RGBA)
 		return image_array.tobytes()
 	elif format_type == "RGBX_8888":
@@ -356,7 +406,7 @@ def create_app():
 						f"length: {processed_t['length']}, format: {str(processed_t['format'])}, send time: {e_t - s_t}, total time: {total}",
 						__name__)
 					send_queue.task_done()
-					# await asyncio.sleep(0.01)  # 添加小延时缓解缓冲区负载
+				# await asyncio.sleep(0.01)  # 添加小延时缓解缓冲区负载
 				except asyncio.TimeoutError:
 					# logger.debug(f"send_loop exit: timeout", __name__)
 					continue
@@ -386,29 +436,29 @@ def create_app():
 					next_id_to_send += 1
 					await send_queue.put(processed_t)
 
-					# # 发送处理结果
-					# s_t = time.time()
-					# data_content = (
-					# 	struct.pack('!I', processed_t['frameIndex']) +
-					# 	struct.pack('!I', processed_t['width']) +
-					# 	struct.pack('!I', processed_t['height']) +
-					# 	struct.pack('!I', processed_t['length']) + processed_t['data']
-					# )
-					#
-					# packet_t = struct.pack('!II', 1, len(data_content)) + data_content
-					# checksum_t = zlib.crc32(data_content) & 0xFFFFFFFF
-					# packet_t += struct.pack('!Q', checksum_t)
-					#
-					# # for i in range(0, len(packet_t), MAX_CHUNK_SIZE):
-					# # 	chunk = packet_t[i:i + MAX_CHUNK_SIZE]
-					# # 	await websocket.send_bytes(chunk)
-					# await websocket.send_bytes(packet_t)
-					# e_t = time.time()
-					# total = e_t - processed_t['start']
-					# logger.info(
-					# 	f"Sent frame, index: {processed_t['frameIndex']}, w*h: {processed_t['width']}x{processed_t['height']},"
-					# 	f"length: {processed_t['length']}, format: {str(processed_t['format'])}, send time: {e_t - s_t}, total time: {total}",
-					# 	__name__)
+				# # 发送处理结果
+				# s_t = time.time()
+				# data_content = (
+				# 	struct.pack('!I', processed_t['frameIndex']) +
+				# 	struct.pack('!I', processed_t['width']) +
+				# 	struct.pack('!I', processed_t['height']) +
+				# 	struct.pack('!I', processed_t['length']) + processed_t['data']
+				# )
+				#
+				# packet_t = struct.pack('!II', 1, len(data_content)) + data_content
+				# checksum_t = zlib.crc32(data_content) & 0xFFFFFFFF
+				# packet_t += struct.pack('!Q', checksum_t)
+				#
+				# # for i in range(0, len(packet_t), MAX_CHUNK_SIZE):
+				# # 	chunk = packet_t[i:i + MAX_CHUNK_SIZE]
+				# # 	await websocket.send_bytes(chunk)
+				# await websocket.send_bytes(packet_t)
+				# e_t = time.time()
+				# total = e_t - processed_t['start']
+				# logger.info(
+				# 	f"Sent frame, index: {processed_t['frameIndex']}, w*h: {processed_t['width']}x{processed_t['height']},"
+				# 	f"length: {processed_t['length']}, format: {str(processed_t['format'])}, send time: {e_t - s_t}, total time: {total}",
+				# 	__name__)
 
 				# 等待客户端请求
 				try:
@@ -421,7 +471,7 @@ def create_app():
 					logger.debug(f"Received data:  recv {len(data)}, total {len(buffer)}", __name__)
 				except asyncio.TimeoutError:
 					pass
-					# logger.info(f"Timeout reached while waiting for recv data", __name__)
+				# logger.info(f"Timeout reached while waiting for recv data", __name__)
 
 				while len(buffer) >= 8:  # 至少需要 8 字节来读取包类型和数据长度
 					packet_type, data_length = struct.unpack('!II', buffer[:8])
@@ -447,7 +497,7 @@ def create_app():
 						logger.error(
 							f"CRC32 checksum mismatch {packet_type}, {checksum}, calculated: {calculated_checksum}",
 							__name__)
-						# continue
+					# continue
 
 					# 根据包类型进行处理
 					if packet_type == 0:  # 心跳包
