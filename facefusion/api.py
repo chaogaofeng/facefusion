@@ -75,9 +75,9 @@ def decode_h265(h265_bytes, width, height):
 			.output('pipe:1', format='rawvideo', pix_fmt='bgr24', s=f'{width}x{height}')
 			.run(input=h265_bytes)
 		)
-		# 将字节流转换为 NumPy 数组表示的图像
-		image = np.frombuffer(out, dtype=np.uint8).reshape((height, width, 3))
-		return image
+		# # 将字节流转换为 NumPy 数组表示的图像
+		# image = np.frombuffer(out, dtype=np.uint8).reshape((height, width, 3))
+		# return image
 	except Exception as e:
 		raise ValueError(f"H.265 解码失败: {e}")
 
@@ -99,9 +99,7 @@ def convert_to_bitmap(width, height, format_type, data):
 	if isinstance(format_type, bytearray):
 		format_type = format_type.decode('utf-8')
 
-	if format_type == "H265":
-		image = decode_h265(data, width, height)
-	elif format_type == "RGBA_8888":
+	if format_type == "RGBA_8888":
 		if len(data) != width * height * 4:
 			raise ValueError("数据长度与图像尺寸不匹配")
 		image_array = np.frombuffer(data, dtype=np.uint8).reshape((height, width, 4))
@@ -133,6 +131,7 @@ def convert_to_bitmap(width, height, format_type, data):
 		image_array = np.frombuffer(data, dtype=np.uint8)
 		image = cv2.imdecode(image_array, cv2.IMREAD_UNCHANGED)
 	elif format_type == "YUV_420_888":
+		data = decode_h265(data, width, height)
 		if len(data) != width * height * 3 // 2:
 			raise ValueError("数据长度与图像尺寸不匹配")
 		image_array = np.frombuffer(data, dtype=np.uint8).reshape((height * 3 // 2, width))
@@ -162,9 +161,7 @@ def bitmap_to_data(image, width, height, format_type):
 	if isinstance(format_type, bytearray):
 		format_type = format_type.decode('utf-8')
 
-	if format_type == "H265":
-		return encode_h265(image, fps=30)
-	elif format_type == "RGBA_8888":
+	if format_type == "RGBA_8888":
 		image_array = cv2.cvtColor(image, cv2.COLOR_BGR2RGBA)
 		return image_array.tobytes()
 	elif format_type == "RGBX_8888":
@@ -197,8 +194,9 @@ def bitmap_to_data(image, width, height, format_type):
 		_, png_data = cv2.imencode('.png', image)
 		return png_data.tobytes()
 	elif format_type == "YUV_420_888":
-		yuv_image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV_I420)
-		return yuv_image.tobytes()
+		return encode_h265(image)
+		# yuv_image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV_I420)
+		# return yuv_image.tobytes()
 	elif format_type == "YUV_422_888":
 		yuv_image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV_Y422)
 		return yuv_image.tobytes()
