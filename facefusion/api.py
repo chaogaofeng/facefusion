@@ -37,9 +37,10 @@ def identify_image_format(image_bytes):
 		raise ValueError(f"不支持的图像格式 {image_bytes[:20]}")
 
 
-def encode_h265(image, fps=30):
+def encode_h265(image, fps=30, bitrate="2000000"):
 	"""
 	将图像数据压缩为 H.265 格式并返回字节流。
+	:param bitrate:
 	:param image: 输入图像（NumPy 数组）
 	:param fps: 视频帧率
 	:return: H.265 压缩数据的字节流
@@ -51,8 +52,8 @@ def encode_h265(image, fps=30):
 		out, _ = (
 			ffmpeg
 			.input('pipe:0', framerate=fps, format='rawvideo', pix_fmt='bgr24', s=f'{width}x{height}')
-			.output('pipe:1', vcodec='libx265')  # 输出到内存流，而不是文件
-			.run(input=image.tobytes())
+			.output('pipe:1', vcodec='libx265', **{'b:v': bitrate})  # 输出到内存流，而不是文件
+			.run(input=image.tobytes(), quiet=True)
 		)
 		return out  # 返回压缩后的字节流
 	except Exception as e:
@@ -71,14 +72,12 @@ def decode_h265(h265_bytes, width, height):
 		# 使用 FFmpeg 解码 H.265 数据
 		out, _ = (
 			ffmpeg
-			.input('pipe:0')
-			.output('pipe:1', format='rawvideo', pix_fmt='bgr24', s=f'{width}x{height}')
+			.input('pipe:0', format='h265')
+			.output('pipe:1', format='rawvideo', pix_fmt='yuv420p', s=f'{width}x{height}')
 			.run(input=h265_bytes)
 		)
+		logger.info("解码后字节流长度:", len(out))  # 输出字节流的长度
 		return out
-		# # 将字节流转换为 NumPy 数组表示的图像
-		# image = np.frombuffer(out, dtype=np.uint8).reshape((height, width, 3))
-		# return image
 	except Exception as e:
 		raise ValueError(f"H.265 解码失败: {e}")
 
