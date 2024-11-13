@@ -70,6 +70,8 @@ def decode_h265(h265_bytes, width, height):
 	:param height: 图像高度
 	:return: 解码后的图像（NumPy 数组）
 	"""
+	with open('encode.txt', 'wb') as f:
+		f.write(h265_bytes)
 	try:
 		# 使用 FFmpeg 解码 H.265 数据
 		out, _ = (
