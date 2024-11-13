@@ -75,6 +75,7 @@ def decode_h265(h265_bytes, width, height):
 			.output('pipe:1', format='rawvideo', pix_fmt='bgr24', s=f'{width}x{height}')
 			.run(input=h265_bytes)
 		)
+		return out
 		# # 将字节流转换为 NumPy 数组表示的图像
 		# image = np.frombuffer(out, dtype=np.uint8).reshape((height, width, 3))
 		# return image
