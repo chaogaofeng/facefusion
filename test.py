@@ -9,7 +9,7 @@ import numpy as np
 import psutil
 import websockets
 
-from facefusion.api import decode_h265
+from facefusion.api import decode_h265, convert_to_bitmap, encode_h265
 from facefusion.uis.components.webcam import get_webcam_capture
 
 
@@ -155,5 +155,7 @@ async def main():
 if __name__ == '__main__':
 	with open('encode.txt') as f:
 		h265_bytes = f.read()
-		decode_h265(h265_bytes, 144,176)
+		data = decode_h265(h265_bytes, 144,176)
+		image = convert_to_bitmap(144,176,'YUV_420_888',data)
+		encode_h265(image)
 	# asyncio.run(main())
