@@ -37,9 +37,10 @@ def identify_image_format(image_bytes):
 		raise ValueError(f"不支持的图像格式 {image_bytes[:20]}")
 
 
-def encode_h265(image, fps=30, bitrate="800000"):
+def encode_h265(image, fps=30, bitrate=800000, i_frame_interval = 2):
 	"""
 	将图像数据压缩为 H.265 格式并返回字节流。
+	:param i_frame_interval:
 	:param bitrate:
 	:param image: 输入图像（NumPy 数组）
 	:param fps: 视频帧率
@@ -51,8 +52,8 @@ def encode_h265(image, fps=30, bitrate="800000"):
 		# 使用 FFmpeg 压缩图像为 H.265 格式，并将输出流重定向到内存
 		out, _ = (
 			ffmpeg
-			.input('pipe:0', format='rawvideo', pix_fmt='yuv420p', s=f'{width}x{height}', framerate=fps)
-			.output('pipe:1', vcodec='libx265', b=bitrate)  # 设置像素格式为 yuv420p
+			.input('pipe:0', format='rawvideo', pix_fmt='yuv420p', s=f'{width}x{height}')
+			.output('pipe:1', vcodec='libx265', r=fps, video_bitrate=bitrate, g=i_frame_interval * fps, pix_fmt='yuv420p')  # 设置像素格式为 yuv420p
 			.run(input=image.tobytes(), quiet=True)
 		)
 		logger.debug("压缩后字节流长度:", len(out))
@@ -73,8 +74,8 @@ def decode_h265(h265_bytes, width, height):
 		# 使用 FFmpeg 解码 H.265 数据
 		out, _ = (
 			ffmpeg
-			.input('pipe:0', format='hevc')  # 输入数据是 H.265 编码的视频流
-			.output('pipe:1', format='rawvideo', pix_fmt='yuv420p', s=f'{width}x{height}')  # 输出为 yuv420p 格式
+			.input('pipe:0', vcodec='hevc', format='yuv420p', s=f'{width}x{height}')  # 输入数据是 H.265 编码的视频流
+			.output('pipe:1', format='rawvideo', pix_fmt='yuv420p')  # 输出为 yuv420p 格式
 			.run(input=h265_bytes)
 		)
 		logger.debug("解码后字节流长度:", len(out))
