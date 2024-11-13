@@ -52,9 +52,10 @@ def encode_h265(image, fps=30, bitrate="2000000"):
 		out, _ = (
 			ffmpeg
 			.input('pipe:0', framerate=fps, format='rawvideo', pix_fmt='bgr24', s=f'{width}x{height}')
-			.output('pipe:1', vcodec='libx265', **{'b:v': bitrate})  # 输出到内存流，而不是文件
+			.output('pipe:1', vcodec='libx265', pix_fmt='yuv420p', **{'b:v': bitrate})  # 输出到内存流，而不是文件
 			.run(input=image.tobytes(), quiet=True)
 		)
+		logger.debug("压缩后字节流长度:", len(out))
 		return out  # 返回压缩后的字节流
 	except Exception as e:
 		raise ValueError(f"H.265 压缩失败: {e}")
@@ -76,7 +77,7 @@ def decode_h265(h265_bytes, width, height):
 			.output('pipe:1', format='rawvideo', pix_fmt='yuv420p', s=f'{width}x{height}')
 			.run(input=h265_bytes)
 		)
-		logger.info("解码后字节流长度:", len(out))  # 输出字节流的长度
+		logger.debug("解码前字节流长度:", len(out))
 		return out
 	except Exception as e:
 		raise ValueError(f"H.265 解码失败: {e}")
