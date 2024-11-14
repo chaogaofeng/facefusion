@@ -153,7 +153,7 @@ async def main():
 
 
 if __name__ == '__main__':
-	with open('encode.txt') as f:
+	with open('encode.txt', 'rb') as f:
 		h265_bytes = f.read()
 		data = decode_h265(h265_bytes, 144,176)
 		image = convert_to_bitmap(144,176,'YUV_420_888',data)
