@@ -67,7 +67,7 @@ def encode_h265(image, fps=30, bitrate=800000, i_frame_interval = 2):
 		logger.debug(f"压缩: stdout {len(stdout) if stdout else  0},  stderr {stderr}, 耗时: {time.time()-t}", __name__)
 		return stdout  # 返回压缩后的字节流
 	except Exception as e:
-		raise ValueError(f"H.265 压缩失败: {e}")
+		raise ValueError(f"H.265 压缩失败: {e.stderr.decode('utf-8')}")
 
 
 def decode_h265(h265_bytes, width, height):
@@ -93,7 +93,7 @@ def decode_h265(h265_bytes, width, height):
 		logger.debug(f"解码: stdout {len(stdout) if stdout else  0},  stderr {stderr}, 耗时: {time.time()-t}", __name__)
 		return stdout
 	except Exception as e:
-		raise ValueError(f"H.265 解码失败: {e}")
+		raise ValueError(f"H.265 解码失败: {e.stderr.decode('utf-8')}")
 
 
 def convert_to_bitmap(width, height, format_type, data):
@@ -208,8 +208,8 @@ def bitmap_to_data(image, width, height, format_type):
 		_, png_data = cv2.imencode('.png', image)
 		return png_data.tobytes()
 	elif format_type == "YUV_420_888":
-		return encode_h265(image)
-		# yuv_image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV_I420)
+		yuv_image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV_I420)
+		return encode_h265(yuv_image)
 		# return yuv_image.tobytes()
 	elif format_type == "YUV_422_888":
 		yuv_image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV_Y422)
