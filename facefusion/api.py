@@ -64,10 +64,12 @@ def encode_h265(image, fps=30, bitrate=800000, i_frame_interval = 2):
 			)
 			.run(input=image.tobytes(), capture_stdout=True, capture_stderr=True)
 		)
-		logger.debug(f"压缩: stdout {len(stdout) if stdout else  0},  stderr {stderr}, 耗时: {time.time()-t}", __name__)
+		logger.debug(f"压缩: stdout {len(stdout) if stdout else  0}, 耗时: {time.time()-t}", __name__)
 		return stdout  # 返回压缩后的字节流
-	except Exception as e:
-		raise ValueError(f"H.265 压缩失败: {e.stderr.decode('utf-8')}")
+	except ffmpeg.Error as e:
+		logger.info(e.stderr.decode('utf-8'), __name__)
+		return image.tobytes()
+		# raise ValueError(f"H.265 压缩失败: {e.stderr.decode('utf-8')}")
 
 
 def decode_h265(h265_bytes, width, height):
@@ -90,9 +92,9 @@ def decode_h265(h265_bytes, width, height):
 			.output('pipe:1', format='rawvideo', pix_fmt='yuv420p')  # 输出为 yuv420p 格式
 			.run(input=h265_bytes, capture_stdout=True, capture_stderr=True)
 		)
-		logger.debug(f"解码: stdout {len(stdout) if stdout else  0},  stderr {stderr}, 耗时: {time.time()-t}", __name__)
+		logger.debug(f"解码: stdout {len(stdout) if stdout else  0}, 耗时: {time.time()-t}", __name__)
 		return stdout
-	except Exception as e:
+	except ffmpeg.Error as e:
 		raise ValueError(f"H.265 解码失败: {e.stderr.decode('utf-8')}")
 
 
