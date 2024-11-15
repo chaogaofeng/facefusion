@@ -73,5 +73,7 @@ if __name__ == '__main__':
 		.output('pipe:1', vcodec='libx265', format='hevc', pix_fmt='yuv420p')  # 指定输出格式为 H.265 和 YUV420p
 		.run(input=yuv_420_888.tobytes(), capture_stdout=True, capture_stderr=True)
 	)
+	print(stdout)
+	print(stderr)
 
 
