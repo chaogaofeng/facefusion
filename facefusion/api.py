@@ -50,7 +50,7 @@ def encode_h265(image, fps=30, bitrate=800000, i_frame_interval = 2):
 
 	try:
 		t = time.time()
-		height, width, _ = image.shape
+		height, width = image.shape[:2]
 		# 使用 FFmpeg 压缩图像为 H.265 格式，并将输出流重定向到内存
 		stdout, stderr = (
 			ffmpeg
@@ -66,11 +66,9 @@ def encode_h265(image, fps=30, bitrate=800000, i_frame_interval = 2):
 			.run(input=image.tobytes(), capture_stdout=True, capture_stderr=True)
 		)
 		logger.debug(f"压缩: stdout {len(stdout) if stdout else  0}, 耗时: {time.time()-t}", __name__)
-		return stdout  # 返回压缩后的字节流
+		return BytesIO(stdout)  # 返回压缩后的字节流
 	except ffmpeg.Error as e:
-		logger.info(e.stderr.decode('utf-8'), __name__)
-		return image.tobytes()
-		# raise ValueError(f"H.265 压缩失败: {e.stderr.decode('utf-8')}")
+		raise ValueError(f"H.265 压缩失败: {e.stderr.decode('utf-8')}")
 
 
 def decode_h265(h265_bytes, width, height):
