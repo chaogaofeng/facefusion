@@ -1,4 +1,8 @@
+import cv2
 import ffmpeg
+import numpy as np
+
+from facefusion.api import encode_h265
 
 
 def compress_jpg_to_h265(jpg_path):
@@ -35,4 +39,32 @@ def decode_h265_to_frame(compressed_data):
 if __name__ == '__main__':
 	jpg_path = 'test.jpg'
 	compressed_data = compress_jpg_to_h265(jpg_path)
-	decode_h265_to_frame(compressed_data)
+	print("compressed data:", len(compressed_data))
+	uncompressed_data = decode_h265_to_frame(compressed_data)
+	print("uncompressed data:", len(uncompressed_data))
+
+	bgr_image = cv2.imread(jpg_path)
+	# 获取图像尺寸
+	height, width = bgr_image.shape[:2]
+
+	# 转换为 YUV_I420 格式
+	yuv_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2YUV_I420)
+
+	# YUV_420_888 格式的内存布局
+	# - Y 分量为单独的平面
+	# - U 和 V 分量按交错方式存储
+	y_plane = yuv_image[:height, :]
+	u_plane = yuv_image[height:height + height // 4, :].reshape((height // 2, width // 2))
+	v_plane = yuv_image[height + height // 4:, :].reshape((height // 2, width // 2))
+
+	# 将 U 和 V 平面交错存储
+	uv_interleaved = np.empty((height // 2, width), dtype=np.uint8)
+	uv_interleaved[:, 0::2] = u_plane
+	uv_interleaved[:, 1::2] = v_plane
+
+	# 最终 YUV_420_888 格式
+	yuv_420_888 = np.vstack((y_plane, uv_interleaved))
+
+	encode_h265(yuv_420_888)
+
+
