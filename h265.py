@@ -2,7 +2,7 @@ import cv2
 import ffmpeg
 import numpy as np
 
-from facefusion.api import encode_h265, decode_h265
+from facefusion.api import encode_h265, decode_h265, encode_h264, decode_h264
 
 
 def compress_jpg_to_h265(jpg_path):
@@ -79,8 +79,13 @@ if __name__ == '__main__':
 	# 	print(f"H.265 压缩失败: {e.stderr.decode('utf-8')}")
 
 	compressed_data = encode_h265(yuv_420_888.tobytes(), width, height)
-	print("compressed data:", len(compressed_data))
+	print("h265 compressed data:", len(compressed_data))
 	uncompressed_data = decode_h265(compressed_data, width, height)
-	print("uncompressed data:", len(uncompressed_data))
+	print("h265 uncompressed data:", len(uncompressed_data))
+
+	compressed_data = encode_h264(yuv_420_888.tobytes(), width, height)
+	print("h264 compressed data:", len(compressed_data))
+	uncompressed_data = decode_h264(compressed_data, width, height)
+	print("h264 uncompressed data:", len(uncompressed_data))
 
 

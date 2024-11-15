@@ -40,13 +40,8 @@ def identify_image_format(image_bytes):
 
 def encode_h265(data, width, height):
 	"""
-	将图像数据压缩为 H.265 格式并返回字节流。
-	:param i_frame_interval:
-	:param bitrate:
-	:param image: 输入图像（NumPy 数组）
-	:param fps: 视频帧率
-	:return: H.265 压缩数据的字节流
-	"""
+    将图像数据压缩为 H.265 格式并返回字节流。
+    """
 
 	try:
 		t = time.time()
@@ -56,36 +51,37 @@ def encode_h265(data, width, height):
 			.input('pipe:0', format='rawvideo', pix_fmt='yuv420p', s=f'{width}x{height}')  # 指定输入的格式、像素格式和分辨率
 			.output('pipe:1', vcodec='libx265', format='hevc', pix_fmt='yuv420p')  # 指定输出格式为 H.265 和 YUV420p
 			.run(input=data, capture_stdout=True, capture_stderr=True)
-			# ffmpeg
-			# .input('pipe:0', format='rawvideo', pix_fmt='yuv420p', s=f'{width}x{height}')
-			# .output(
-			# 	'pipe:1',
-			# 	vcodec='libx265',
-			# 	r=fps,
-			# 	bitrate=bitrate,
-			# 	g=i_frame_interval * fps,
-			# 	pix_fmt='yuv420p'
-			# )
-			# .run(input=image.tobytes(), capture_stdout=True, capture_stderr=True)
 		)
-		logger.debug(f"压缩: stdout {len(stdout) if stdout else  0}, 耗时: {time.time()-t}", __name__)
+		logger.debug(f"H.265 压缩: {len(data)} ==> {len(stdout) if stdout else 0}, 耗时: {time.time() - t}", __name__)
 		return stdout  # 返回压缩后的字节流
 	except ffmpeg.Error as e:
 		raise ValueError(f"H.265 压缩失败: {e.stderr.decode('utf-8')}")
 
 
-def decode_h265(h265_bytes, width, height):
+def encode_h264(data, width, height):
 	"""
-	从 H.265 压缩字节流解码并返回图像（BGR 格式）。
-	:param h265_bytes: H.265 压缩字节流
-	:param width: 图像宽度
-	:param height: 图像高度
-	:return: 解码后的图像（NumPy 数组）
+    将图像数据压缩为 H.264 格式并返回字节流。
+    """
+	try:
+		t = time.time()
+		# 使用 FFmpeg 压缩图像为 H.264 格式，并将输出流重定向到内存
+		stdout, stderr = (
+			ffmpeg
+			.input('pipe:0', format='rawvideo', pix_fmt='yuv420p', s=f'{width}x{height}')  # 指定输入格式、像素格式和分辨率
+			.output('pipe:1', vcodec='libx264', format='h264', pix_fmt='yuv420p')  # 指定输出格式为 H.264 和 YUV420p
+			.run(input=data, capture_stdout=True, capture_stderr=True)
+		)
+		logger.debug(f"H.264 压缩: {len(data)} ==> {len(stdout) if stdout else 0}, 耗时: {time.time() - t}", __name__)
+		return stdout  # 返回压缩后的字节流
+	except ffmpeg.Error as e:
+		raise ValueError(f"H.264 压缩失败: {e.stderr.decode('utf-8')}")
+
+
+def decode_h265(data, width, height):
+	"""
+	从 H.265 压缩字节流解码并返回解压字节流。
 	"""
 	try:
-		if not os.path.exists('decode.txt'):
-			with open('encode.txt', 'wb') as file:
-				file.write(h265_bytes)
 		t = time.time()
 		# 使用 FFmpeg 解码 H.265 数据
 		stdout, stderr = (
@@ -93,12 +89,31 @@ def decode_h265(h265_bytes, width, height):
 			.input('pipe:0', vcodec='hevc')  # 输入 H.265 流，指定分辨率
 			# .input('pipe:0', vcodec='hevc', s=f'{width}x{height}')  # 输入 H.265 流，指定分辨率
 			.output('pipe:1', format='rawvideo', pix_fmt='yuv420p')  # 输出为 yuv420p 格式
-			.run(input=h265_bytes, capture_stdout=True, capture_stderr=True)
+			.run(input=data, capture_stdout=True, capture_stderr=True)
 		)
-		logger.debug(f"解码: stdout {len(stdout) if stdout else  0}, 耗时: {time.time()-t}", __name__)
+		logger.debug(f"解码: {len(data)} ===> {len(stdout) if stdout else 0}, 耗时: {time.time() - t}", __name__)
 		return stdout
 	except ffmpeg.Error as e:
 		raise ValueError(f"H.265 解码失败: {e.stderr.decode('utf-8')}")
+
+
+def decode_h264(data, width, height):
+	"""
+	从 H.264 压缩字节流解码并返回解压字节流。
+	"""
+	try:
+		t = time.time()
+		# 使用 FFmpeg 解码 H.264 数据
+		stdout, stderr = (
+			ffmpeg
+			.input('pipe:0', vcodec='h264')  # 输入 H.264 流，指定解码器
+			.output('pipe:1', format='rawvideo', pix_fmt='yuv420p')  # 输出为 yuv420p 格式
+			.run(input=data, capture_stdout=True, capture_stderr=True)
+		)
+		logger.debug(f"解码: {len(data)} ===> {len(stdout) if stdout else 0}, 耗时: {time.time() - t}", __name__)
+		return stdout
+	except ffmpeg.Error as e:
+		raise ValueError(f"H.264 解码失败: {e.stderr.decode('utf-8')}")
 
 
 def convert_to_bitmap(width, height, format_type, data):
@@ -215,7 +230,7 @@ def bitmap_to_data(image, width, height, format_type):
 	elif format_type == "YUV_420_888":
 		yuv_image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV_I420)
 		return encode_h265(yuv_image.tobytes(), width, height)
-		# return yuv_image.tobytes()
+	# return yuv_image.tobytes()
 	elif format_type == "YUV_422_888":
 		yuv_image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV_Y422)
 		return yuv_image.tobytes()
