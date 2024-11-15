@@ -65,7 +65,6 @@ if __name__ == '__main__':
 	# 最终 YUV_420_888 格式
 	yuv_420_888 = np.vstack((y_plane, uv_interleaved))
 
-	height, width = yuv_420_888.shape[:2]
 	# 使用 FFmpeg 压缩图像为 H.265 格式，并将输出流重定向到内存
 	try:
 		stdout, stderr = (

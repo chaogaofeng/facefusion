@@ -38,7 +38,7 @@ def identify_image_format(image_bytes):
 		raise ValueError(f"不支持的图像格式 {image_bytes[:20]}")
 
 
-def encode_h265(image, fps=30, bitrate=800000, i_frame_interval = 2):
+def encode_h265(data, width, height):
 	"""
 	将图像数据压缩为 H.265 格式并返回字节流。
 	:param i_frame_interval:
@@ -50,13 +50,12 @@ def encode_h265(image, fps=30, bitrate=800000, i_frame_interval = 2):
 
 	try:
 		t = time.time()
-		height, width = image.shape[:2]
 		# 使用 FFmpeg 压缩图像为 H.265 格式，并将输出流重定向到内存
 		stdout, stderr = (
 			ffmpeg
 			.input('pipe:0', format='rawvideo', pix_fmt='yuv420p', s=f'{width}x{height}')  # 指定输入的格式、像素格式和分辨率
 			.output('pipe:1', vcodec='libx265', format='hevc', pix_fmt='yuv420p')  # 指定输出格式为 H.265 和 YUV420p
-			.run(input=image.tobytes(), capture_stdout=True, capture_stderr=True)
+			.run(input=data, capture_stdout=True, capture_stderr=True)
 			# ffmpeg
 			# .input('pipe:0', format='rawvideo', pix_fmt='yuv420p', s=f'{width}x{height}')
 			# .output(
@@ -215,7 +214,7 @@ def bitmap_to_data(image, width, height, format_type):
 		return png_data.tobytes()
 	elif format_type == "YUV_420_888":
 		yuv_image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV_I420)
-		return encode_h265(yuv_image)
+		return encode_h265(yuv_image.tobytes(), width, height)
 		# return yuv_image.tobytes()
 	elif format_type == "YUV_422_888":
 		yuv_image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV_Y422)
