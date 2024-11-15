@@ -1,4 +1,5 @@
 import asyncio
+import os.path
 import struct
 import time
 import zlib
@@ -81,8 +82,9 @@ def decode_h265(h265_bytes, width, height):
 	:return: 解码后的图像（NumPy 数组）
 	"""
 	try:
-		with open('encode.txt', 'wb') as file:
-			file.write(h265_bytes)
+		if not os.path.exists('decode.txt'):
+			with open('encode.txt', 'wb') as file:
+				file.write(h265_bytes)
 		t = time.time()
 		# 使用 FFmpeg 解码 H.265 数据
 		stdout, stderr = (
