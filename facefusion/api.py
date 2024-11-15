@@ -54,8 +54,8 @@ def encode_h265(image, fps=30, bitrate=800000, i_frame_interval = 2):
 		# 使用 FFmpeg 压缩图像为 H.265 格式，并将输出流重定向到内存
 		stdout, stderr = (
 			ffmpeg
-			.input('pipe:0')  # 从标准输入读取
-			.output('pipe:1', vcodec='libx265', format='hevc', pix_fmt='yuv420p')  # 输出 H.265 格式，YUV420p
+			.input('pipe:0', format='rawvideo', pix_fmt='yuv420p', s=f'{width}x{height}')  # 指定输入的格式、像素格式和分辨率
+			.output('pipe:1', vcodec='libx265', format='hevc')  # 指定输出格式为 H.265 和 YUV420p
 			.run(input=image.tobytes(), capture_stdout=True, capture_stderr=True)
 			# ffmpeg
 			# .input('pipe:0', format='rawvideo', pix_fmt='yuv420p', s=f'{width}x{height}')
