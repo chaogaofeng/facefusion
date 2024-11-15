@@ -38,10 +38,10 @@ def decode_h265_to_frame(compressed_data):
 
 if __name__ == '__main__':
 	jpg_path = 'test.jpg'
-	compressed_data = compress_jpg_to_h265(jpg_path)
-	print("compressed data:", len(compressed_data))
-	uncompressed_data = decode_h265_to_frame(compressed_data)
-	print("uncompressed data:", len(uncompressed_data))
+	# compressed_data = compress_jpg_to_h265(jpg_path)
+	# print("compressed data:", len(compressed_data))
+	# uncompressed_data = decode_h265_to_frame(compressed_data)
+	# print("uncompressed data:", len(uncompressed_data))
 
 	bgr_image = cv2.imread(jpg_path)
 	# 获取图像尺寸
@@ -65,6 +65,22 @@ if __name__ == '__main__':
 	# 最终 YUV_420_888 格式
 	yuv_420_888 = np.vstack((y_plane, uv_interleaved))
 
-	decode_h265(yuv_420_888.tobytes(), width, height)
+	# 使用 FFmpeg 压缩图像为 H.265 格式，并将输出流重定向到内存
+	# try:
+	# 	stdout, stderr = (
+	# 		ffmpeg
+	# 		.input('pipe:0', format='rawvideo', pix_fmt='yuv420p', s=f'{width}x{height}')  # 指定输入的格式、像素格式和分辨率
+	# 		.output('pipe:1', vcodec='libx265', format='hevc', pix_fmt='yuv420p')  # 指定输出格式为 H.265 和 YUV420p
+	# 		.run(input=yuv_420_888.tobytes(), capture_stdout=True, capture_stderr=True)
+	# 	)
+	# 	print(stdout)
+	# 	print(stderr)
+	# except ffmpeg.Error as e:
+	# 	print(f"H.265 压缩失败: {e.stderr.decode('utf-8')}")
+
+	compressed_data = encode_h265(yuv_420_888.tobytes(), width, height)
+	print("compressed data:", len(compressed_data))
+	uncompressed_data = decode_h265(compressed_data, width, height)
+	print("uncompressed data:", len(uncompressed_data))
 
 
