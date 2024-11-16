@@ -1,6 +1,7 @@
 import asyncio
 import os
 import struct
+import subprocess
 import time
 import zlib
 
@@ -36,16 +37,17 @@ async def heartbeat(websocket):
 	await send_packet(websocket, packet_type=0, data=content)
 
 
-async def send_camera_frame(websocket, frame_index, frame):
+async def send_camera_frame(websocket, frame_index, h265_stream):
 	# 将图像帧编码为 JPEG 格式
-	_, image_data = cv2.imencode('.jpg', frame)
-	image_data = image_data.tobytes()
+	# _, image_data = cv2.imencode('.jpg', frame)
+	# image_data = image_data.tobytes()
 
 	# image_data = b'\x09' * 1024 * 1024 * 4
+	image_data = h265_stream
 
 	device_id = "TestDevice"
 	user = "User1"
-	format_type = "JPEG"
+	format_type = "YUV_420_888"
 
 	# 打包数据
 	device_id_bytes = device_id.encode('utf-8')
@@ -119,10 +121,25 @@ async def main():
 	webcam_height = 1080
 	webcam_capture = get_webcam_capture()
 	if webcam_capture and webcam_capture.isOpened():
-		webcam_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))  # type:ignore[attr-defined]
+		# webcam_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))  # type:ignore[attr-defined]
 		webcam_capture.set(cv2.CAP_PROP_FRAME_WIDTH, webcam_width)
 		webcam_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, webcam_height)
 		webcam_capture.set(cv2.CAP_PROP_FPS, 30)
+	# 配置 FFmpeg 子进程进行 H.265 编码（接受原始 YUV 数据）
+	ffmpeg_command = [
+		'ffmpeg',
+		'-y',  # 覆盖输出
+		'-f', 'rawvideo',  # 原始视频流
+		'-pixel_format', 'yuv420p',  # YUV 4:2:0 格式
+		'-video_size', f'{webcam_width}x{webcam_height}',  # 视频分辨率
+		'-framerate', str(30),  # 帧率
+		'-i', '-',  # 输入来自标准输入
+		'-c:v', 'libx265',  # H.265 编码
+		'-preset', 'fast',  # 编码速度
+		'-f', 'hevc',  # 输出为原始 H.265 流
+		'-'  # 输出到标准输出
+	]
+	ffmpeg_process = subprocess.Popen(ffmpeg_command, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
 	uri = "ws://36.133.28.180:8005/ws"  # 替换为你的 WebSocket 服务器地址
 	async with websockets.connect(uri) as websocket:
@@ -130,9 +147,21 @@ async def main():
 		while True:
 			# if capture_frame is None:
 			_, capture_frame = webcam_capture.read()
+			# 转换为 YUV_420 格式
+			yuv_frame = cv2.cvtColor(capture_frame, cv2.COLOR_BGR2YUV_I420)
+
+			# 将帧写入 FFmpeg 的标准输入
+			ffmpeg_process.stdin.write(yuv_frame.tobytes())
+
+			# 从标准输出获取 H.265 字节流
+			h265_stream = ffmpeg_process.stdout.read()
+
+			h265_stream2 = encode_h265(yuv_frame.tobytes(), webcam_width, webcam_height)
+			print(f"encode: {h265_stream} == {h265_stream2}")
+
 			frameIndex += 1
 			t = time.time()
-			await send_camera_frame(websocket, frameIndex, capture_frame)
+			await send_camera_frame(websocket, frameIndex, h265_stream)
 			e = time.time()
 			print("capture_frame", "frameIndex", frameIndex, "send time", e - t)
 
@@ -153,9 +182,4 @@ async def main():
 
 
 if __name__ == '__main__':
-	with open('encode.txt', 'rb') as f:
-		h265_bytes = f.read()
-		data = decode_h265(h265_bytes, 144,176)
-		image = convert_to_bitmap(144,176,'YUV_420_888',data)
-		encode_h265(image)
-	# asyncio.run(main())
+	asyncio.run(main())
