@@ -117,21 +117,51 @@ async def receive_frame(websocket):
 
 
 async def main():
-	webcam_width = 1920
-	webcam_height = 1080
-	webcam_capture = get_webcam_capture()
-	if webcam_capture and webcam_capture.isOpened():
-		# webcam_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))  # type:ignore[attr-defined]
-		webcam_capture.set(cv2.CAP_PROP_FRAME_WIDTH, webcam_width)
-		webcam_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, webcam_height)
-		webcam_capture.set(cv2.CAP_PROP_FPS, 30)
+	# webcam_width = 1920
+	# webcam_height = 1080
+	# webcam_capture = get_webcam_capture()
+	# if webcam_capture and webcam_capture.isOpened():
+	# 	# webcam_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))  # type:ignore[attr-defined]
+	# 	webcam_capture.set(cv2.CAP_PROP_FRAME_WIDTH, webcam_width)
+	# 	webcam_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, webcam_height)
+	# 	webcam_capture.set(cv2.CAP_PROP_FPS, 30)
+
+
+	jpg_path = 'test.jpg'
+	# compressed_data = compress_jpg_to_h265(jpg_path)
+	# print("compressed data:", len(compressed_data))
+	# uncompressed_data = decode_h265_to_frame(compressed_data)
+	# print("uncompressed data:", len(uncompressed_data))
+
+	bgr_image = cv2.imread(jpg_path)
+	# 获取图像尺寸
+	height, width = bgr_image.shape[:2]
+
+	# 转换为 YUV_I420 格式
+	yuv_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2YUV_I420)
+
+	# YUV_420_888 格式的内存布局
+	# - Y 分量为单独的平面
+	# - U 和 V 分量按交错方式存储
+	y_plane = yuv_image[:height, :]
+	u_plane = yuv_image[height:height + height // 4, :].reshape((height // 2, width // 2))
+	v_plane = yuv_image[height + height // 4:, :].reshape((height // 2, width // 2))
+
+	# 将 U 和 V 平面交错存储
+	uv_interleaved = np.empty((height // 2, width), dtype=np.uint8)
+	uv_interleaved[:, 0::2] = u_plane
+	uv_interleaved[:, 1::2] = v_plane
+
+	# 最终 YUV_420_888 格式
+	yuv_frame = np.vstack((y_plane, uv_interleaved))
+
 	# 配置 FFmpeg 子进程进行 H.265 编码（接受原始 YUV 数据）
 	ffmpeg_command = [
 		'ffmpeg',
 		'-y',  # 覆盖输出
 		'-f', 'rawvideo',  # 原始视频流
 		'-pixel_format', 'yuv420p',  # YUV 4:2:0 格式
-		'-video_size', f'{webcam_width}x{webcam_height}',  # 视频分辨率
+		'-video_size', f'{width}x{height}',  # 视频分辨率
 		'-framerate', str(30),  # 帧率
 		'-i', '-',  # 输入来自标准输入
 		'-c:v', 'libx265',  # H.265 编码
@@ -146,9 +176,9 @@ async def main():
 		frameIndex = 0
 		while True:
 			# if capture_frame is None:
-			_, capture_frame = webcam_capture.read()
+			# _, capture_frame = webcam_capture.read()
 			# 转换为 YUV_420 格式
-			yuv_frame = cv2.cvtColor(capture_frame, cv2.COLOR_BGR2YUV_I420)
+			# yuv_frame = cv2.cvtColor(capture_frame, cv2.COLOR_BGR2YUV_I420)
 
 			# 将帧写入 FFmpeg 的标准输入
 			ffmpeg_process.stdin.write(yuv_frame.tobytes())
@@ -156,7 +186,7 @@ async def main():
 			# 从标准输出获取 H.265 字节流
 			h265_stream = ffmpeg_process.stdout.read()
 
-			h265_stream2 = encode_h265(yuv_frame.tobytes(), webcam_width, webcam_height)
+			h265_stream2 = encode_h265(yuv_frame.tobytes(), width, height)
 			print(f"encode: {h265_stream} == {h265_stream2}")
 
 			frameIndex += 1
@@ -171,14 +201,13 @@ async def main():
 				e = time.time()
 				print("capture_frame", "frameIndex", frameIndex, "recv time", e - t)
 
-
-			# process = psutil.Process()
-			# # 获取内存信息
-			# mem_info = process.memory_info()
-			# print(f"RSS: {mem_info.rss / 1024 / 1024} M")
-			# print(f"VMS: {mem_info.vms / 1024 / 1024} M")
-			#
-			# time.sleep(0.1)
+		# process = psutil.Process()
+		# # 获取内存信息
+		# mem_info = process.memory_info()
+		# print(f"RSS: {mem_info.rss / 1024 / 1024} M")
+		# print(f"VMS: {mem_info.vms / 1024 / 1024} M")
+		#
+		# time.sleep(0.1)
 
 
 if __name__ == '__main__':
