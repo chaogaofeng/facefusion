@@ -1,3 +1,5 @@
+import time
+
 import cv2
 import ffmpeg
 import numpy as np
@@ -78,14 +80,32 @@ if __name__ == '__main__':
 	# except ffmpeg.Error as e:
 	# 	print(f"H.265 压缩失败: {e.stderr.decode('utf-8')}")
 
-	compressed_data = encode_h265(yuv_420_888.tobytes(), width, height)
-	print("h265 compressed data:", len(compressed_data))
-	uncompressed_data = decode_h265(compressed_data, width, height)
-	print("h265 uncompressed data:", len(uncompressed_data))
+	t = time.time()
+	compressed_data = encode_h265(yuv_420_888.tobytes(), width, height, vcodec='libx265')
+	print("h265 compressed data cpu:", len(compressed_data))
+	t = time.time()
+	compressed_data_gpu = encode_h265(yuv_420_888.tobytes(), width, height, vcodec='hevc_nvenc')
+	print("h265 compressed data gpu:", len(compressed_data_gpu))
 
-	compressed_data = encode_h264(yuv_420_888.tobytes(), width, height)
-	print("h264 compressed data:", len(compressed_data))
-	uncompressed_data = decode_h264(compressed_data, width, height)
-	print("h264 uncompressed data:", len(uncompressed_data))
+	t = time.time()
+	uncompressed_data = decode_h265(compressed_data, width, height, vcodec='hevc')
+	print("h265 uncompressed data cpu:", len(uncompressed_data), time.time() - t)
+	t = time.time()
+	uncompressed_data = decode_h265(compressed_data, width, height, vcodec='hevc_cuvid')
+	print("h265 uncompressed data gpu:", len(uncompressed_data), time.time() - t)
+
+	t = time.time()
+	compressed_data = encode_h264(yuv_420_888.tobytes(), width, height, vcodec='libx264')
+	print("h264 compressed data cpu:", len(compressed_data))
+	t = time.time()
+	compressed_data_gpu = encode_h264(yuv_420_888.tobytes(), width, height, vcodec='h264_nvenc')
+	print("h264 compressed data gpu:", len(compressed_data_gpu))
+
+	t = time.time()
+	uncompressed_data = decode_h264(compressed_data, width, height, vcodec='h264')
+	print("h264 uncompressed data cpu:", len(uncompressed_data), time.time() - t)
+	t = time.time()
+	uncompressed_data = decode_h264(compressed_data, width, height, vcodec='h264_cuvid')
+	print("h264 uncompressed data gpu:", len(uncompressed_data), time.time() - t)
 
 

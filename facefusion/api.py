@@ -38,10 +38,11 @@ def identify_image_format(image_bytes):
 		raise ValueError(f"不支持的图像格式 {image_bytes[:20]}")
 
 
-def encode_h265(data, width, height, vcodec='hevc_nvenc'):
+def encode_h265(data, width, height, vcodec='libx265'):
 	"""
     将图像数据压缩为 H.265 格式并返回字节流。
     vcodec = 'libx265'
+    hevc_nvenc
     """
 
 	try:
@@ -60,10 +61,11 @@ def encode_h265(data, width, height, vcodec='hevc_nvenc'):
 		raise ValueError(f"H.265 压缩失败: {e.stderr.decode('utf-8')}")
 
 
-def encode_h264(data, width, height, vcodec='h264_nvenc'):
+def encode_h264(data, width, height, vcodec='libx264'):
 	"""
     将图像数据压缩为 H.264 格式并返回字节流。
     vcodec = 'libx264'
+    h264_nvenc
     """
 	try:
 		t = time.time()
