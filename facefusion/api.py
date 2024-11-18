@@ -83,10 +83,11 @@ def encode_h264(data, width, height, vcodec='libx264'):
 		raise ValueError(f"H.264 压缩失败: {e.stderr.decode('utf-8')}")
 
 
-def decode_h265(data, width, height, vcodec='hevc_cuvid'):
+def decode_h265(data, width, height, vcodec='hevc'):
 	"""
 	从 H.265 压缩字节流解码并返回解压字节流。
 	vcodec = 'hevc'
+	hevc_cuvid
 	"""
 	try:
 		t = time.time()
@@ -104,10 +105,11 @@ def decode_h265(data, width, height, vcodec='hevc_cuvid'):
 		raise ValueError(f"H.265 解码失败: {e.stderr.decode('utf-8')}")
 
 
-def decode_h264(data, width, height, vcodec='h264_cuvid'):
+def decode_h264(data, width, height, vcodec='h264'):
 	"""
 	从 H.264 压缩字节流解码并返回解压字节流。
 	vcodec='h264'
+	h264_cuvid
 	"""
 	try:
 		t = time.time()
