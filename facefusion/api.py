@@ -38,78 +38,85 @@ def identify_image_format(image_bytes):
 		raise ValueError(f"不支持的图像格式 {image_bytes[:20]}")
 
 
-def encode_h265(data, width, height):
+def encode_h265(data, width, height, vcodec='hevc_nvenc'):
 	"""
     将图像数据压缩为 H.265 格式并返回字节流。
+    vcodec = 'libx265'
     """
 
 	try:
 		t = time.time()
 		# 使用 FFmpeg 压缩图像为 H.265 格式，并将输出流重定向到内存
-		stdout, stderr = (
+		process = (
 			ffmpeg
 			.input('pipe:0', format='rawvideo', pix_fmt='yuv420p', s=f'{width}x{height}')  # 指定输入的格式、像素格式和分辨率
-			.output('pipe:1', vcodec='libx265', format='hevc', pix_fmt='yuv420p')  # 指定输出格式为 H.265 和 YUV420p
-			.run(input=data, capture_stdout=True, capture_stderr=True)
+			.output('pipe:1', vcodec=vcodec, format='hevc', pix_fmt='yuv420p', preset='fast')  # 指定输出格式为 H.265 和 YUV420p
+			.run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
 		)
+		stdout, stderr = process.communicate(input=data)
 		logger.debug(f"H.265 压缩: {len(data)} ==> {len(stdout) if stdout else 0}, 耗时: {time.time() - t}", __name__)
 		return stdout  # 返回压缩后的字节流
 	except ffmpeg.Error as e:
 		raise ValueError(f"H.265 压缩失败: {e.stderr.decode('utf-8')}")
 
 
-def encode_h264(data, width, height):
+def encode_h264(data, width, height, vcodec='h264_nvenc'):
 	"""
     将图像数据压缩为 H.264 格式并返回字节流。
+    vcodec = 'libx264'
     """
 	try:
 		t = time.time()
 		# 使用 FFmpeg 压缩图像为 H.264 格式，并将输出流重定向到内存
-		stdout, stderr = (
+		process = (
 			ffmpeg
 			.input('pipe:0', format='rawvideo', pix_fmt='yuv420p', s=f'{width}x{height}')  # 指定输入格式、像素格式和分辨率
-			.output('pipe:1', vcodec='libx264', format='h264', pix_fmt='yuv420p')  # 指定输出格式为 H.264 和 YUV420p
-			.run(input=data, capture_stdout=True, capture_stderr=True)
+			.output('pipe:1', vcodec=vcodec, format='h264', pix_fmt='yuv420p', preset='fast')  # 指定输出格式为 H.264 和 YUV420p
+			.run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
 		)
+		stdout, stderr = process.communicate(input=data)
 		logger.debug(f"H.264 压缩: {len(data)} ==> {len(stdout) if stdout else 0}, 耗时: {time.time() - t}", __name__)
 		return stdout  # 返回压缩后的字节流
 	except ffmpeg.Error as e:
 		raise ValueError(f"H.264 压缩失败: {e.stderr.decode('utf-8')}")
 
 
-def decode_h265(data, width, height):
+def decode_h265(data, width, height, vcodec='hevc_cuvid'):
 	"""
 	从 H.265 压缩字节流解码并返回解压字节流。
+	vcodec = 'hevc'
 	"""
 	try:
 		t = time.time()
 		# 使用 FFmpeg 解码 H.265 数据
-		stdout, stderr = (
+		process = (
 			ffmpeg
-			.input('pipe:0', vcodec='hevc')  # 输入 H.265 流，指定分辨率
-			# .input('pipe:0', vcodec='hevc', s=f'{width}x{height}')  # 输入 H.265 流，指定分辨率
+			.input('pipe:0', vcodec=vcodec, s=f'{width}x{height}')  # 输入 H.265 流，指定分辨率
 			.output('pipe:1', format='rawvideo', pix_fmt='yuv420p')  # 输出为 yuv420p 格式
-			.run(input=data, capture_stdout=True, capture_stderr=True)
+			.run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
 		)
+		stdout, stderr = process.communicate(input=data)
 		logger.debug(f"解码: {len(data)} ===> {len(stdout) if stdout else 0}, 耗时: {time.time() - t}", __name__)
 		return stdout
 	except ffmpeg.Error as e:
 		raise ValueError(f"H.265 解码失败: {e.stderr.decode('utf-8')}")
 
 
-def decode_h264(data, width, height):
+def decode_h264(data, width, height, vcodec='h264_cuvid'):
 	"""
 	从 H.264 压缩字节流解码并返回解压字节流。
+	vcodec='h264'
 	"""
 	try:
 		t = time.time()
 		# 使用 FFmpeg 解码 H.264 数据
-		stdout, stderr = (
+		process = (
 			ffmpeg
-			.input('pipe:0', vcodec='h264')  # 输入 H.264 流，指定解码器
+			.input('pipe:0', vcodec=vcodec)  # 输入 H.264 流，指定解码器
 			.output('pipe:1', format='rawvideo', pix_fmt='yuv420p')  # 输出为 yuv420p 格式
-			.run(input=data, capture_stdout=True, capture_stderr=True)
+			.run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
 		)
+		stdout, stderr = process.communicate(input=data)
 		logger.debug(f"解码: {len(data)} ===> {len(stdout) if stdout else 0}, 耗时: {time.time() - t}", __name__)
 		return stdout
 	except ffmpeg.Error as e:
