@@ -91,7 +91,7 @@ def decode_h265(data, width, height, vcodec='hevc_cuvid'):
 		# 使用 FFmpeg 解码 H.265 数据
 		process = (
 			ffmpeg
-			.input('pipe:0', vcodec=vcodec, s=f'{width}x{height}')  # 输入 H.265 流，指定分辨率
+			.input('pipe:0', vcodec=vcodec)  # 输入 H.265 流，指定分辨率
 			.output('pipe:1', format='rawvideo', pix_fmt='yuv420p')  # 输出为 yuv420p 格式
 			.run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
 		)
