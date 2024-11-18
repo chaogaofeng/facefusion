@@ -83,9 +83,10 @@ if __name__ == '__main__':
 	t = time.time()
 	compressed_data = encode_h265(yuv_420_888.tobytes(), width, height, vcodec='libx265')
 	print("h265 compressed data cpu:", len(compressed_data), time.time() - t)
-	t = time.time()
-	compressed_data_gpu = encode_h265(yuv_420_888.tobytes(), width, height, vcodec='hevc_nvenc')
-	print("h265 compressed data gpu:", len(compressed_data_gpu), time.time() - t)
+	for i in range(1, 100):
+		t = time.time()
+		compressed_data_gpu = encode_h265(yuv_420_888.tobytes(), width, height, vcodec='hevc_nvenc')
+		print("h265 compressed data gpu:", len(compressed_data_gpu), time.time() - t)
 
 	t = time.time()
 	uncompressed_data = decode_h265(compressed_data, width, height, vcodec='hevc')
