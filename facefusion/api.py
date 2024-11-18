@@ -57,7 +57,7 @@ def encode_h265(data, width, height, vcodec='libx265'):
 		process = (
 			ffmpeg
 			.input('pipe:0', format='rawvideo', pix_fmt='yuv420p', s=f'{width}x{height}')  # 指定输入的格式、像素格式和分辨率
-			.output('pipe:1', vcodec=vcodec, format='hevc', pix_fmt='yuv420p', preset='fast')  # 指定输出格式为 H.265 和 YUV420p
+			.output('pipe:1', vcodec=vcodec, format='hevc', pix_fmt='yuv420p', preset='ultrafast')  # 指定输出格式为 H.265 和 YUV420p
 			.run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
 		)
 		stdout, stderr = process.communicate(input=data)
