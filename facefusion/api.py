@@ -48,13 +48,19 @@ def encode_h265(data, width, height, vcodec='libx265'):
 	try:
 		t = time.time()
 		# 使用 FFmpeg 压缩图像为 H.265 格式，并将输出流重定向到内存
-		process = (
+		stdout, stderr = (
 			ffmpeg
 			.input('pipe:0', format='rawvideo', pix_fmt='yuv420p', s=f'{width}x{height}')  # 指定输入的格式、像素格式和分辨率
-			.output('pipe:1', vcodec=vcodec, format='hevc', pix_fmt='yuv420p', preset='fast')  # 指定输出格式为 H.265 和 YUV420p
-			.run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
+			.output('pipe:1', vcodec=vcodec, format='hevc', pix_fmt='yuv420p')  # 指定输出格式为 H.265 和 YUV420p
+			.run(input=data, capture_stdout=True, capture_stderr=True)
 		)
-		stdout, stderr = process.communicate(input=data)
+		# process = (
+		# 	ffmpeg
+		# 	.input('pipe:0', format='rawvideo', pix_fmt='yuv420p', s=f'{width}x{height}')  # 指定输入的格式、像素格式和分辨率
+		# 	.output('pipe:1', vcodec=vcodec, format='hevc', pix_fmt='yuv420p', preset='fast')  # 指定输出格式为 H.265 和 YUV420p
+		# 	.run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
+		# )
+		# stdout, stderr = process.communicate(input=data)
 		logger.debug(f"H.265 压缩: {len(data)} ==> {len(stdout) if stdout else 0}, 耗时: {time.time() - t}", __name__)
 		return stdout  # 返回压缩后的字节流
 	except ffmpeg.Error as e:
@@ -92,13 +98,19 @@ def decode_h265(data, width, height, vcodec='hevc'):
 	try:
 		t = time.time()
 		# 使用 FFmpeg 解码 H.265 数据
-		process = (
+		stdout, stderr = (
 			ffmpeg
 			.input('pipe:0', vcodec=vcodec)  # 输入 H.265 流，指定分辨率
 			.output('pipe:1', format='rawvideo', pix_fmt='yuv420p')  # 输出为 yuv420p 格式
-			.run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
+			.run_async(input=data, capture_stdout=True, capture_stderr=True)
 		)
-		stdout, stderr = process.communicate(input=data)
+		# process = (
+		# 	ffmpeg
+		# 	.input('pipe:0', vcodec=vcodec)  # 输入 H.265 流，指定分辨率
+		# 	.output('pipe:1', format='rawvideo', pix_fmt='yuv420p')  # 输出为 yuv420p 格式
+		# 	.run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
+		# )
+		# stdout, stderr = process.communicate(input=data)
 		logger.debug(f"解码: {len(data)} ===> {len(stdout) if stdout else 0}, 耗时: {time.time() - t}", __name__)
 		return stdout
 	except ffmpeg.Error as e:
