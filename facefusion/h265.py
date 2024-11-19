@@ -1,8 +1,9 @@
 import fcntl
 import threading
 import time
-
+import os
 import ffmpeg
+import atexit
 
 
 class VideoTranscoder:
@@ -20,11 +21,14 @@ class VideoTranscoder:
 		self.pix_fmt = pix_fmt
 		self.decode_process = None
 		self.encode_process = None
-		self.frame_size = width * height * 3 // 2  # yuv420p 每帧大小
+		if self.pix_fmt == 'yuv420p':
+			self.frame_size = width * height * 3 // 2  # yuv420p 每帧大小
 		self.decode_lock = threading.Lock()  # 解码专用锁
 		self.encode_lock = threading.Lock()  # 编码专用锁
+		atexit.register(self.close)
 
 	def start_decode_process(self):
+		self.close_decode_process()
 		self.decode_process = (
 			ffmpeg
 			.input('pipe:0', vcodec=self.vcodec)
@@ -32,11 +36,12 @@ class VideoTranscoder:
 			.run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
 		)
 
-	def start_encode_process(self):
+	def start_encode_process(self, gop_size=1):
+		self.close_encode_process()
 		self.encode_process = (
 			ffmpeg
 			.input('pipe:0', format='rawvideo', pix_fmt=self.pix_fmt, s=f'{self.width}x{self.height}')
-			.output('pipe:1', vcodec=self.vcodec, format=self.format, pix_fmt=self.pix_fmt, preset=self.preset)
+			.output('pipe:1', vcodec=self.vcodec, format=self.format, pix_fmt=self.pix_fmt, preset=self.preset, g=gop_size)
 			.run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
 		)
 		# 设置 stdout 为非阻塞模式
@@ -44,12 +49,12 @@ class VideoTranscoder:
 		fcntl.fcntl(self.encode_process.stdout, fcntl.F_SETFL, flags | os.O_NONBLOCK)
 
 	def decode(self, data):
-		if not self.decode_process or self.decode_process.poll() is not None:
-			with self.decode_lock:
-				if not self.decode_process or self.decode_process.poll() is not None:
-					print("start decode process...")
-					self.start_decode_process()
 		with self.decode_lock:
+			if not self.decode_process or self.decode_process.poll() is not None:
+				with self.decode_lock:
+					if not self.decode_process or self.decode_process.poll() is not None:
+						print("start decode process...")
+						self.start_decode_process()
 			try:
 				self.decode_process.stdin.write(data)
 				self.decode_process.stdin.flush()
@@ -64,12 +69,12 @@ class VideoTranscoder:
 
 	def encode(self, data):
 		"""encode"""
-		if not self.encode_process or self.encode_process.poll() is not None:
-			with self.encode_lock:
-				if not self.encode_process or self.encode_process.poll() is not None:
-					print("start encode process...")
-					self.start_encode_process()
 		with self.encode_lock:
+			if not self.encode_process or self.encode_process.poll() is not None:
+				with self.encode_lock:
+					if not self.encode_process or self.encode_process.poll() is not None:
+						print("start encode process...")
+						self.start_encode_process()
 			try:
 				if len(data) != self.frame_size:
 					print(f"Invalid frame size: {len(data)}. Expected: {self.frame_size}")
@@ -87,16 +92,24 @@ class VideoTranscoder:
 
 	def close(self):
 		"""关闭解码和编码进程"""
+		self.close_decode_process()
+		self.close_encode_process()
+
+	def close_decode_process(self):
 		if self.decode_process:
 			self.decode_process.stdin.close()
 			self.decode_process.stdout.close()
 			self.decode_process.stderr.close()
 			self.decode_process.wait()
+			self.decode_process = None
+
+	def close_encode_process(self):
 		if self.encode_process:
 			self.encode_process.stdin.close()
 			self.encode_process.stdout.close()
 			self.encode_process.stderr.close()
 			self.encode_process.wait()
+			self.encode_process = None
 
 
 if __name__ == '__main__':
