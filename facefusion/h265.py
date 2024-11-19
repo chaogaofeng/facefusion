@@ -41,8 +41,8 @@ class VideoTranscoder:
 		self.encode_process = (
 			ffmpeg
 			.input('pipe:0', format='rawvideo', pix_fmt=self.pix_fmt, s=f'{self.width}x{self.height}')
-			.output('pipe:1', vcodec=self.vcodec, format=self.format, pix_fmt=self.pix_fmt, preset=self.preset, g=gop_size, flush_packets=1)
-			.run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True, loglevel='debug')
+			.output('pipe:1', vcodec=self.vcodec, format=self.format, pix_fmt=self.pix_fmt, preset=self.preset, g=gop_size, flush_packets=1, loglevel='debug')
+			.run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
 		)
 		# 设置 stdout 为非阻塞模式
 		flags = fcntl.fcntl(self.encode_process.stdout, fcntl.F_GETFL)
