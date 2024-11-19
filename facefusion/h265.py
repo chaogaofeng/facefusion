@@ -39,9 +39,11 @@ class VideoTranscoder:
 		)
 
 	def decode(self, data):
-		"""decode"""
-		if not self.decode_process:
-			self.start_decode_process()
+		if not self.decode_process or self.decode_process.poll() is not None:
+			with self.decode_lock:
+				if not self.decode_process or self.decode_process.poll() is not None:
+					print("start decode process...")
+					self.start_decode_process()
 		with self.decode_lock:
 			try:
 				self.decode_process.stdin.write(data)
@@ -57,8 +59,11 @@ class VideoTranscoder:
 
 	def encode(self, data):
 		"""encode"""
-		if not self.encode_process:
-			self.start_encode_process()
+		if not self.encode_process or self.encode_process.poll() is not None:
+			with self.encode_lock:
+				if not self.encode_process or self.encode_process.poll() is not None:
+					print("start encode process...")
+					self.start_encode_process()
 		print("====0")
 		with self.encode_lock:
 			try:
