@@ -62,8 +62,10 @@ class VideoTranscoder:
 			try:
 				print("====1")
 				self.encode_process.stdin.write(data)
+				self.encode_process.stdin.flush()
 				print("====2")
 				encoded_frame = self.encode_process.stdout.read()  # H.265 格式数据
+				print("====3")
 				return encoded_frame
 			except BrokenPipeError:
 				self.start_encode_process()
