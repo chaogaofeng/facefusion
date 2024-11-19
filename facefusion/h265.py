@@ -1,4 +1,5 @@
 import fcntl
+import select
 import threading
 import time
 import os
@@ -79,9 +80,15 @@ class VideoTranscoder:
 					return None
 				self.encode_process.stdin.write(data)
 				self.encode_process.stdin.flush()
-				time.sleep(1)
-				encoded_frame = self.encode_process.stdout.read(self.frame_size)  # H.265 格式数据
-				return encoded_frame
+
+				# 读取编码数据，等待并检查编码器是否有输出
+				ready_to_read, _, _ = select.select([self.encode_process.stdout], [], [], 1)
+				if ready_to_read:
+					encoded_frame = self.encode_process.stdout.read(self.frame_size)
+					return encoded_frame
+				else:
+					print("No data available from encoder.")
+					return None
 			except BrokenPipeError:
 				self.start_encode_process()
 				return None
