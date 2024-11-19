@@ -1,3 +1,4 @@
+import fcntl
 import threading
 import time
 
@@ -38,6 +39,9 @@ class VideoTranscoder:
 			.output('pipe:1', vcodec=self.vcodec, format=self.format, pix_fmt=self.pix_fmt, preset=self.preset)
 			.run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
 		)
+		# 设置 stdout 为非阻塞模式
+		flags = fcntl.fcntl(self.encode_process.stdout, fcntl.F_GETFL)
+		fcntl.fcntl(self.encode_process.stdout, fcntl.F_SETFL, flags | os.O_NONBLOCK)
 
 	def decode(self, data):
 		if not self.decode_process or self.decode_process.poll() is not None:
@@ -67,6 +71,9 @@ class VideoTranscoder:
 					self.start_encode_process()
 		with self.encode_lock:
 			try:
+				if len(data) != self.frame_size:
+					print(f"Invalid frame size: {len(data)}. Expected: {self.frame_size}")
+					return None
 				self.encode_process.stdin.write(data)
 				self.encode_process.stdin.flush()
 				encoded_frame = self.encode_process.stdout.read(self.frame_size)  # H.265 格式数据
