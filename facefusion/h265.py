@@ -19,6 +19,7 @@ class VideoTranscoder:
 		self.pix_fmt = pix_fmt
 		self.decode_process = None
 		self.encode_process = None
+		self.frame_size = width * height * 3 // 2  # yuv420p 每帧大小
 		self.decode_lock = threading.Lock()  # 解码专用锁
 		self.encode_lock = threading.Lock()  # 编码专用锁
 
@@ -48,9 +49,7 @@ class VideoTranscoder:
 			try:
 				self.decode_process.stdin.write(data)
 				self.decode_process.stdin.flush()
-				self.encode_process.stdin.write(b'')
-				self.encode_process.stdin.flush()
-				raw_frame = self.decode_process.stdout.read()
+				raw_frame = self.decode_process.stdout.read(self.frame_size)
 				return raw_frame
 			except BrokenPipeError:
 				self.start_decode_process()
@@ -70,9 +69,7 @@ class VideoTranscoder:
 			try:
 				self.encode_process.stdin.write(data)
 				self.encode_process.stdin.flush()
-				self.encode_process.stdin.write(b'')
-				self.encode_process.stdin.flush()
-				encoded_frame = self.encode_process.stdout.read()  # H.265 格式数据
+				encoded_frame = self.encode_process.stdout.read(self.frame_size)  # H.265 格式数据
 				return encoded_frame
 			except BrokenPipeError:
 				self.start_encode_process()
