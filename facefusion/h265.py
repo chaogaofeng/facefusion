@@ -42,7 +42,7 @@ class VideoTranscoder:
 		self.encode_process = (
 			ffmpeg
 			.input('pipe:0', format='rawvideo', pix_fmt=self.pix_fmt, s=f'{self.width}x{self.height}')
-			.output('pipe:1', vcodec=self.vcodec, format=self.format, pix_fmt=self.pix_fmt, preset=self.preset, g=gop_size, flush_packets=1, loglevel='debug')
+			.output('pipe:1', vcodec=self.vcodec, format=self.format, pix_fmt=self.pix_fmt, preset=self.preset, g=gop_size, flush_packets=1)
 			.run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
 		)
 		# 设置 stdout 为非阻塞模式
@@ -80,7 +80,7 @@ class VideoTranscoder:
 					return None
 				self.encode_process.stdin.write(data)
 				self.encode_process.stdin.flush()
-
+				self.encode_process.stdin.flush()
 				# 读取编码数据，等待并检查编码器是否有输出
 				ready_to_read, _, _ = select.select([self.encode_process.stdout], [], [], 1)
 				if ready_to_read:
