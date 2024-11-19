@@ -1,4 +1,5 @@
 import threading
+import time
 
 import ffmpeg
 
@@ -6,10 +7,10 @@ import ffmpeg
 class VideoTranscoder:
 	def __init__(self, width, height, vcodec='libx265', format='hevc', preset='ultrafast', pix_fmt='yuv420p'):
 		"""
-		:param vcodec: libx265、hevc_nvenc、libx264、h264_nvenc
-		:param format: hevc、h264
-		:param preset: ultrafast
-		"""
+        :param vcodec: libx265、hevc_nvenc、libx264、h264_nvenc
+        :param format: hevc、h264
+        :param preset: ultrafast
+        """
 		self.width = width
 		self.height = height
 		self.vcodec = vcodec
@@ -44,6 +45,7 @@ class VideoTranscoder:
 		with self.decode_lock:
 			try:
 				self.decode_process.stdin.write(data)
+				self.encode_process.stdin.flush()
 				raw_frame = self.decode_process.stdout.read()
 				return raw_frame
 			except BrokenPipeError:
@@ -86,3 +88,30 @@ class VideoTranscoder:
 			self.encode_process.stdout.close()
 			self.encode_process.stderr.close()
 			self.encode_process.wait()
+
+
+if __name__ == '__main__':
+	width = 1920
+	height = 1080
+
+	transcoder = VideoTranscoder(width, height)
+
+	import os
+	input_data = os.urandom(width * height * 3 // 2)
+
+	for i in range(100):
+		t = time.time()
+		decoded_frame = transcoder.decode(input_data)
+		if decoded_frame is not None:
+			print("decode success!", time.time() - t)
+		else:
+			print("decode fail!")
+
+		t = time.time()
+		encoded_frame = transcoder.encode(decoded_frame if decoded_frame else input_data)
+		if encoded_frame is not None:
+			print("encode success!", time.time() - t)
+		else:
+			print("encode fail!!")
+
+	transcoder.close()
