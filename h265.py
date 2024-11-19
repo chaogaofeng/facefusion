@@ -5,6 +5,7 @@ import ffmpeg
 import numpy as np
 
 from facefusion.api import encode_h265, decode_h265, encode_h264, decode_h264
+from facefusion.h265 import VideoTranscoder
 
 
 def compress_jpg_to_h265(jpg_path):
@@ -80,33 +81,35 @@ if __name__ == '__main__':
 	# except ffmpeg.Error as e:
 	# 	print(f"H.265 压缩失败: {e.stderr.decode('utf-8')}")
 
-	t = time.time()
-	compressed_data = encode_h265(yuv_420_888.tobytes(), width, height, vcodec='libx265')
-	print("h265 compressed data cpu:", len(compressed_data), time.time() - t)
-	for i in range(1, 100):
+	h = VideoTranscoder(width, height)
+	for i in range(1, 1000):
 		t = time.time()
-		compressed_data_gpu = encode_h265(yuv_420_888.tobytes(), width, height, vcodec='hevc_nvenc')
-		print("h265 compressed data gpu:", len(compressed_data_gpu), time.time() - t)
+		compressed_data_gpu = encode_h265(yuv_420_888.tobytes(), width, height)
+		print("h265 compressed data cpu:", len(compressed_data_gpu), time.time() - t)
 
-	t = time.time()
-	uncompressed_data = decode_h265(compressed_data, width, height, vcodec='hevc')
-	print("h265 uncompressed data cpu:", len(uncompressed_data), time.time() - t)
-	t = time.time()
-	uncompressed_data = decode_h265(compressed_data, width, height, vcodec='hevc_cuvid')
-	print("h265 uncompressed data gpu:", len(uncompressed_data), time.time() - t)
+		t = time.time()
+		compressed_data_gpu = h.encode(yuv_420_888.tobytes())
+		print("h265 compressed data cpu:", len(compressed_data_gpu), time.time() - t)
 
-	t = time.time()
-	compressed_data = encode_h264(yuv_420_888.tobytes(), width, height, vcodec='libx264')
-	print("h264 compressed data cpu:", len(compressed_data), time.time() - t)
-	t = time.time()
-	compressed_data_gpu = encode_h264(yuv_420_888.tobytes(), width, height, vcodec='h264_nvenc')
-	print("h264 compressed data gpu:", len(compressed_data_gpu), time.time() - t)
-
-	t = time.time()
-	uncompressed_data = decode_h264(compressed_data, width, height, vcodec='h264')
-	print("h264 uncompressed data cpu:", len(uncompressed_data), time.time() - t)
-	t = time.time()
-	uncompressed_data = decode_h264(compressed_data, width, height, vcodec='h264_cuvid')
-	print("h264 uncompressed data gpu:", len(uncompressed_data), time.time() - t)
+	# t = time.time()
+	# uncompressed_data = decode_h265(compressed_data, width, height, vcodec='hevc')
+	# print("h265 uncompressed data cpu:", len(uncompressed_data), time.time() - t)
+	# t = time.time()
+	# uncompressed_data = decode_h265(compressed_data, width, height, vcodec='hevc_cuvid')
+	# print("h265 uncompressed data gpu:", len(uncompressed_data), time.time() - t)
+	#
+	# t = time.time()
+	# compressed_data = encode_h264(yuv_420_888.tobytes(), width, height, vcodec='libx264')
+	# print("h264 compressed data cpu:", len(compressed_data), time.time() - t)
+	# t = time.time()
+	# compressed_data_gpu = encode_h264(yuv_420_888.tobytes(), width, height, vcodec='h264_nvenc')
+	# print("h264 compressed data gpu:", len(compressed_data_gpu), time.time() - t)
+	#
+	# t = time.time()
+	# uncompressed_data = decode_h264(compressed_data, width, height, vcodec='h264')
+	# print("h264 uncompressed data cpu:", len(uncompressed_data), time.time() - t)
+	# t = time.time()
+	# uncompressed_data = decode_h264(compressed_data, width, height, vcodec='h264_cuvid')
+	# print("h264 uncompressed data gpu:", len(uncompressed_data), time.time() - t)
 
 
