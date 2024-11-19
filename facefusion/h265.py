@@ -48,7 +48,8 @@ class VideoTranscoder:
 			try:
 				self.decode_process.stdin.write(data)
 				self.decode_process.stdin.flush()
-				self.decode_process.wait()
+				self.encode_process.stdin.write(b'')
+				self.encode_process.stdin.flush()
 				raw_frame = self.decode_process.stdout.read()
 				return raw_frame
 			except BrokenPipeError:
@@ -70,6 +71,7 @@ class VideoTranscoder:
 				self.encode_process.stdin.write(data)
 				self.encode_process.stdin.flush()
 				self.encode_process.stdin.write(b'')
+				self.encode_process.stdin.flush()
 				encoded_frame = self.encode_process.stdout.read()  # H.265 格式数据
 				return encoded_frame
 			except BrokenPipeError:
