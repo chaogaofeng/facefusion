@@ -51,10 +51,9 @@ class VideoTranscoder:
 	def decode(self, data):
 		with self.decode_lock:
 			if not self.decode_process or self.decode_process.poll() is not None:
-				with self.decode_lock:
-					if not self.decode_process or self.decode_process.poll() is not None:
-						print("start decode process...")
-						self.start_decode_process()
+				if not self.decode_process or self.decode_process.poll() is not None:
+					print("start decode process...")
+					self.start_decode_process()
 			try:
 				self.decode_process.stdin.write(data)
 				self.decode_process.stdin.flush()
@@ -71,10 +70,9 @@ class VideoTranscoder:
 		"""encode"""
 		with self.encode_lock:
 			if not self.encode_process or self.encode_process.poll() is not None:
-				with self.encode_lock:
-					if not self.encode_process or self.encode_process.poll() is not None:
-						print("start encode process...")
-						self.start_encode_process()
+				if not self.encode_process or self.encode_process.poll() is not None:
+					print("start encode process...")
+					self.start_encode_process()
 			try:
 				if len(data) != self.frame_size:
 					print(f"Invalid frame size: {len(data)}. Expected: {self.frame_size}")
