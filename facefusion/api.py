@@ -57,7 +57,8 @@ def encode_h265(data, width, height, vcodec='libx265'):
 		process = (
 			ffmpeg
 			.input('pipe:0', format='rawvideo', pix_fmt='yuv420p', s=f'{width}x{height}')  # 指定输入的格式、像素格式和分辨率
-			.output('pipe:1', vcodec=vcodec, format='hevc', pix_fmt='yuv420p', preset='ultrafast')  # 指定输出格式为 H.265 和 YUV420p
+			.output('pipe:1', vcodec=vcodec, format='hevc', pix_fmt='yuv420p',
+					preset='ultrafast')  # 指定输出格式为 H.265 和 YUV420p
 			.run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
 		)
 		stdout, stderr = process.communicate(input=data)
@@ -425,58 +426,59 @@ def create_app():
 		buffer = bytearray()
 		# 有序字典用于保存处理后的帧数据
 		results = OrderedDict()
-		next_id_to_send = None
-		send_queue = asyncio.Queue(maxsize=100)  # 用于存储待发送的数据帧
-		stop_flag = False
-		MAX_CHUNK_SIZE = 512 * 1024  # 512KB
+		# 使用 Event 来控制停止标志
+		stop_event = asyncio.Event()
+		# 创建锁对象
+		results_lock = asyncio.Lock()
 
-		async def send_loop():
+		async def send_loop(websocket, results, results_lock):
 			"""异步发送队列中的数据帧"""
-			while not stop_flag:
-				try:
-					processed_t = await asyncio.wait_for(send_queue.get(), timeout=5)
-					if processed_t is None:
-						break  # 若接收到 None，跳出循环
-					# 创建完整数据包
-					data_content = (
-						struct.pack('!I', processed_t['frameIndex']) +
-						struct.pack('!I', processed_t['width']) +
-						struct.pack('!I', processed_t['height']) +
-						struct.pack('!I', processed_t['length']) + processed_t['data']
-					)
+			while not stop_event.is_set():  # 使用 Event 判断是否停止
+				for key, value in list(results.items()):
+					try:
+						await asyncio.wait_for(value, timeout=0.2)
+						if value.done():
+							processed_t = await asyncio.wrap_future(value)
+							# 移除已发送的结果，并更新下一个待发送的帧编号
+							async with results_lock:  # 加锁保护对字典的访问
+								del results[key]
 
-					packet_t = struct.pack('!II', 1, len(data_content)) + data_content
-					checksum_t = zlib.crc32(data_content) & 0xFFFFFFFF
-					packet_t += struct.pack('!Q', checksum_t)
+							# 发送处理结果
+							s_t = time.time()
+							data_content = (
+								struct.pack('!I', processed_t['frameIndex']) +
+								struct.pack('!I', processed_t['width']) +
+								struct.pack('!I', processed_t['height']) +
+								struct.pack('!I', processed_t['length']) + processed_t['data']
+							)
 
-					# 发送处理结果
-					s_t = time.time()
-					# for i in range(0, len(packet_t), MAX_CHUNK_SIZE):
-					# 	chunk = packet_t[i:i + MAX_CHUNK_SIZE]
-					# 	await websocket.send_bytes(chunk)
-					await websocket.send_bytes(packet_t)
-					e_t = time.time()
-					total = e_t - processed_t['start']
-					logger.info(
-						f"Sent frame, index: {processed_t['frameIndex']}, w*h: {processed_t['width']}x{processed_t['height']},"
-						f"length: {processed_t['length']}, format: {str(processed_t['format'])}, send time: {e_t - s_t}, total time: {total}",
-						__name__)
-					send_queue.task_done()
-				# await asyncio.sleep(0.01)  # 添加小延时缓解缓冲区负载
-				except asyncio.TimeoutError:
-					# logger.debug(f"send_loop exit: timeout", __name__)
-					continue
-				except WebSocketDisconnect:
-					# logger.debug(f"send_loop exit: disconnect", __name__)
-					break
-				except Exception:
-					traceback.print_exc()
-					# logger.debug(f"send_loop exit: exception", __name__)
-					break
+							packet_t = struct.pack('!II', 1, len(data_content)) + data_content
+							checksum_t = zlib.crc32(data_content) & 0xFFFFFFFF
+							packet_t += struct.pack('!Q', checksum_t)
+
+							await websocket.send_bytes(packet_t)
+							e_t = time.time()
+							total = e_t - processed_t['start']
+							logger.info(
+								f"Sent frame, index: {processed_t['frameIndex']}, w*h: {processed_t['width']}x{processed_t['height']},"
+								f"length: {processed_t['length']}, format: {str(processed_t['format'])}, send time: {e_t - s_t}, total time: {total}",
+								__name__)
+					except asyncio.TimeoutError:
+						async with results_lock:  # 加锁保护对字典的访问
+							del results[key]
+							logger.warn(f"send_loop: timeout, removing future for frame {key}", __name__)
+						# logger.debug(f"send_loop exit: timeout", __name__)
+						continue
+					except WebSocketDisconnect:
+						# logger.debug(f"send_loop exit: disconnect", __name__)
+						break
+					except Exception as e:
+						logger.warn(f"send_loop exit: exception", __name__)
+						break
 			logger.info(f"send_loop exit", __name__)
 
 		# 启动发送循环
-		send_task = asyncio.create_task(send_loop())
+		send_task = asyncio.create_task(send_loop(websocket, results, results_lock))
 
 		# 设置初始参数
 		background_frame = None
@@ -484,44 +486,6 @@ def create_app():
 		beautify = False
 		try:
 			while True:
-				# 检查是否有按顺序完成的结果可以返回
-				completed_results = {key: future for key, future in results.items() if future.done()}
-				if completed_results:
-					for frame_id in sorted(completed_results.keys()):  # 可选：按帧编号排序
-						processed_t = await asyncio.wrap_future(completed_results[frame_id])
-						# 移除已处理的结果
-						del results[frame_id]
-				# while next_id_to_send in results and results[next_id_to_send].done():
-				# 	processed_t = await asyncio.wrap_future(results[next_id_to_send])
-				# 		# 移除已发送的结果，并更新下一个待发送的帧编号
-				# 		del results[next_id_to_send]
-				# 		next_id_to_send += 1
-						# await send_queue.put(processed_t)
-
-						# 发送处理结果
-						s_t = time.time()
-						data_content = (
-							struct.pack('!I', processed_t['frameIndex']) +
-							struct.pack('!I', processed_t['width']) +
-							struct.pack('!I', processed_t['height']) +
-							struct.pack('!I', processed_t['length']) + processed_t['data']
-						)
-
-						packet_t = struct.pack('!II', 1, len(data_content)) + data_content
-						checksum_t = zlib.crc32(data_content) & 0xFFFFFFFF
-						packet_t += struct.pack('!Q', checksum_t)
-
-						# for i in range(0, len(packet_t), MAX_CHUNK_SIZE):
-						# 	chunk = packet_t[i:i + MAX_CHUNK_SIZE]
-						# 	await websocket.send_bytes(chunk)
-						await websocket.send_bytes(packet_t)
-						e_t = time.time()
-						total = e_t - processed_t['start']
-						logger.info(
-							f"Sent frame, index: {processed_t['frameIndex']}, w*h: {processed_t['width']}x{processed_t['height']},"
-							f"length: {processed_t['length']}, format: {str(processed_t['format'])}, send time: {e_t - s_t}, total time: {total}",
-							__name__)
-
 				# 等待客户端请求
 				try:
 					# data = await websocket.receive_bytes()
@@ -533,7 +497,6 @@ def create_app():
 					logger.debug(f"Received data:  recv {len(data)}, total {len(buffer)}", __name__)
 				except asyncio.TimeoutError:
 					pass
-				# logger.info(f"Timeout reached while waiting for recv data", __name__)
 
 				while len(buffer) >= 8:  # 至少需要 8 字节来读取包类型和数据长度
 					packet_type, data_length = struct.unpack('!II', buffer[:8])
@@ -666,24 +629,20 @@ def create_app():
 						}
 
 						future = executor.submit(process_frame, frame_data, source_face, background_frame, beautify)
-						results[frame_index] = future  # 将 Future 按 frame_id 存入字典
-						if next_id_to_send is None:
-							next_id_to_send = frame_index
+						async with results_lock:
+							results[frame_index] = future  # 将处理任务 Future 添加到结果字典中
 					else:
 						logger.warn(f"Received unknown packet type {packet_type}", __name__)
 
 		except WebSocketDisconnect as e:
 			logger.info(f"WebSocket disconnected: {e.code}", __name__)
-			stop_flag = True
-			await send_queue.put(None)
-			await send_task
 		except Exception as e:
 			traceback.print_exc()
 			logger.error(f"Error in WebSocket connection: {e}", __name__)
 		finally:
-			if not stop_flag:
-				logger.info(f"webSocket exit", __name__)
-				await websocket.close()
+			stop_event.set()  # 停止发送循环
+			send_task.cancel()  # 取消发送任务
+			logger.info(f"webSocket exit", __name__)
 
 	return app
 
