@@ -485,36 +485,42 @@ def create_app():
 		try:
 			while True:
 				# 检查是否有按顺序完成的结果可以返回
-				while next_id_to_send in results and results[next_id_to_send].done():
-					processed_t = await asyncio.wrap_future(results[next_id_to_send])
-					# 移除已发送的结果，并更新下一个待发送的帧编号
-					del results[next_id_to_send]
-					next_id_to_send += 1
-					# await send_queue.put(processed_t)
+				completed_results = {key: future for key, future in results.items() if future.done()}
+				if completed_results:
+					for frame_id in sorted(completed_results.keys()):  # 可选：按帧编号排序
+						processed_t = await asyncio.wrap_future(completed_results[frame_id])
+						# 移除已处理的结果
+						del results[frame_id]
+				# while next_id_to_send in results and results[next_id_to_send].done():
+				# 	processed_t = await asyncio.wrap_future(results[next_id_to_send])
+				# 		# 移除已发送的结果，并更新下一个待发送的帧编号
+				# 		del results[next_id_to_send]
+				# 		next_id_to_send += 1
+						# await send_queue.put(processed_t)
 
-					# 发送处理结果
-					s_t = time.time()
-					data_content = (
-						struct.pack('!I', processed_t['frameIndex']) +
-						struct.pack('!I', processed_t['width']) +
-						struct.pack('!I', processed_t['height']) +
-						struct.pack('!I', processed_t['length']) + processed_t['data']
-					)
+						# 发送处理结果
+						s_t = time.time()
+						data_content = (
+							struct.pack('!I', processed_t['frameIndex']) +
+							struct.pack('!I', processed_t['width']) +
+							struct.pack('!I', processed_t['height']) +
+							struct.pack('!I', processed_t['length']) + processed_t['data']
+						)
 
-					packet_t = struct.pack('!II', 1, len(data_content)) + data_content
-					checksum_t = zlib.crc32(data_content) & 0xFFFFFFFF
-					packet_t += struct.pack('!Q', checksum_t)
+						packet_t = struct.pack('!II', 1, len(data_content)) + data_content
+						checksum_t = zlib.crc32(data_content) & 0xFFFFFFFF
+						packet_t += struct.pack('!Q', checksum_t)
 
-					# for i in range(0, len(packet_t), MAX_CHUNK_SIZE):
-					# 	chunk = packet_t[i:i + MAX_CHUNK_SIZE]
-					# 	await websocket.send_bytes(chunk)
-					await websocket.send_bytes(packet_t)
-					e_t = time.time()
-					total = e_t - processed_t['start']
-					logger.info(
-						f"Sent frame, index: {processed_t['frameIndex']}, w*h: {processed_t['width']}x{processed_t['height']},"
-						f"length: {processed_t['length']}, format: {str(processed_t['format'])}, send time: {e_t - s_t}, total time: {total}",
-						__name__)
+						# for i in range(0, len(packet_t), MAX_CHUNK_SIZE):
+						# 	chunk = packet_t[i:i + MAX_CHUNK_SIZE]
+						# 	await websocket.send_bytes(chunk)
+						await websocket.send_bytes(packet_t)
+						e_t = time.time()
+						total = e_t - processed_t['start']
+						logger.info(
+							f"Sent frame, index: {processed_t['frameIndex']}, w*h: {processed_t['width']}x{processed_t['height']},"
+							f"length: {processed_t['length']}, format: {str(processed_t['format'])}, send time: {e_t - s_t}, total time: {total}",
+							__name__)
 
 				# 等待客户端请求
 				try:
