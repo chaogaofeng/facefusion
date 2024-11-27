@@ -367,8 +367,8 @@ def create_app():
 	app = FastAPI()
 
 	max_workers = state_manager.get_item('execution_thread_count')
-	# executor = ThreadPoolExecutor(max_workers=max_workers if max_workers else 4)  # 控制最大线程数
-	executor = ProcessPoolExecutor(max_workers=max_workers if max_workers else 4)
+	executor = ThreadPoolExecutor(max_workers=max_workers if max_workers else 4)  # 控制最大线程数
+	# executor = ProcessPoolExecutor(max_workers=max_workers if max_workers else 4)
 	logger.info(f"{max_workers} thread workers", __name__)
 
 	@app.post('/process_image')
