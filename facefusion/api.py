@@ -38,7 +38,7 @@ def identify_image_format(image_bytes):
 		raise ValueError(f"不支持的图像格式 {image_bytes[:20]}")
 
 
-def encode_h265(data, width, height, vcodec='libx265'):
+def encode_h265(data, width, height, pix_fmt='yuv420p', vcodec='libx265'):
 	"""
     将图像数据压缩为 H.265 格式并返回字节流。
     vcodec = 'libx265'
@@ -56,8 +56,8 @@ def encode_h265(data, width, height, vcodec='libx265'):
 		# )
 		process = (
 			ffmpeg
-			.input('pipe:0', format='rawvideo', pix_fmt='yuv420p', s=f'{width}x{height}')  # 指定输入的格式、像素格式和分辨率
-			.output('pipe:1', vcodec=vcodec, format='hevc', pix_fmt='yuv420p',
+			.input('pipe:0', format='rawvideo', pix_fmt=pix_fmt, s=f'{width}x{height}')  # 指定输入的格式、像素格式和分辨率
+			.output('pipe:1', vcodec=vcodec, format='hevc', pix_fmt='y420p',
 					preset='ultrafast')  # 指定输出格式为 H.265 和 YUV420p
 			.run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
 		)
@@ -90,7 +90,7 @@ def encode_h264(data, width, height, vcodec='libx264'):
 		raise ValueError(f"H.264 压缩失败: {e.stderr.decode('utf-8')}")
 
 
-def decode_h265(data, width, height, vcodec='hevc'):
+def decode_h265(data, width, height, pix_fmt='yuv420p', vcodec='hevc'):
 	"""
 	从 H.265 压缩字节流解码并返回解压字节流。
 	vcodec = 'hevc'
@@ -108,7 +108,7 @@ def decode_h265(data, width, height, vcodec='hevc'):
 		process = (
 			ffmpeg
 			.input('pipe:0', vcodec=vcodec)  # 输入 H.265 流，指定分辨率
-			.output('pipe:1', format='rawvideo', pix_fmt='yuv420p')  # 输出为 yuv420p 格式
+			.output('pipe:1', format='rawvideo', pix_fmt=pix_fmt)  # 输出为 yuv420p 格式
 			.run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
 		)
 		stdout, stderr = process.communicate(input=data)
@@ -178,6 +178,7 @@ def convert_to_bitmap(width, height, format_type, data):
 		image_array = np.frombuffer(data, dtype=np.uint16).reshape((height, width))
 		image = cv2.cvtColor(image_array, cv2.COLOR_BGR5652BGR)
 	elif format_type == "NV21":
+		data = decode_h265(data, width, height, pix_fmt='nv21')
 		if len(data) != width * (height + height // 2):
 			raise ValueError("数据长度与图像尺寸不匹配")
 		image_array = np.frombuffer(data, dtype=np.uint8).reshape((height + height // 2, width))
@@ -189,7 +190,7 @@ def convert_to_bitmap(width, height, format_type, data):
 		image_array = np.frombuffer(data, dtype=np.uint8)
 		image = cv2.imdecode(image_array, cv2.IMREAD_UNCHANGED)
 	elif format_type == "YUV_420_888":
-		data = decode_h265(data, width, height)
+		data = decode_h265(data, width, height, pix_fmt='yuv420p')
 		if len(data) != width * height * 3 // 2:
 			raise ValueError("数据长度与图像尺寸不匹配")
 		image_array = np.frombuffer(data, dtype=np.uint8).reshape((height * 3 // 2, width))
@@ -244,7 +245,7 @@ def bitmap_to_data(image, width, height, format_type):
 		vu_plane = uv_plane[:, 1::2]
 		vu_plane = np.dstack((vu_plane, uv_plane[:, ::2])).reshape(-1)
 
-		return np.concatenate((y_plane.flatten(), vu_plane)).tobytes()
+		return encode_h265(np.concatenate((y_plane.flatten(), vu_plane)).tobytes(), width, height, pix_fmt='nv21')
 	elif format_type == "JPEG":
 		_, jpeg_data = cv2.imencode('.jpg', image)
 		return jpeg_data.tobytes()
@@ -253,7 +254,7 @@ def bitmap_to_data(image, width, height, format_type):
 		return png_data.tobytes()
 	elif format_type == "YUV_420_888":
 		yuv_image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV_I420)
-		return encode_h265(yuv_image.tobytes(), width, height)
+		return encode_h265(yuv_image.tobytes(), width, height, pix_fmt='yuv420p')
 	# return yuv_image.tobytes()
 	elif format_type == "YUV_422_888":
 		yuv_image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV_Y422)
