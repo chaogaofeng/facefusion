@@ -440,8 +440,7 @@ def create_app():
 						break
 					processed_t = await asyncio.wrap_future(results[key])
 					# 移除已发送的结果，并更新下一个待发送的帧编号
-					del results[next_id_to_send]
-					next_id_to_send += 1
+					del results[key]
 					# await send_queue.put(processed_t)
 
 					# 发送处理结果
@@ -613,8 +612,6 @@ def create_app():
 
 						future = executor.submit(process_frame, frame_data, source_face, background_frame, beautify)
 						results[frame_index] = future  # 将 Future 按 frame_id 存入字典
-						if next_id_to_send is None:
-							next_id_to_send = frame_index
 					else:
 						logger.warn(f"Received unknown packet type {packet_type}", __name__)
 
