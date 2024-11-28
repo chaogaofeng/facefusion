@@ -427,6 +427,58 @@ def create_app():
 		buffer = bytearray()
 		# 有序字典用于保存处理后的帧数据
 		results = OrderedDict()
+		next_id_to_send = None
+		send_queue = asyncio.Queue(maxsize=100)  # 用于存储待发送的数据帧
+		stop_flag = False
+		MAX_CHUNK_SIZE = 512 * 1024  # 512KB
+
+		async def send_loop():
+			"""异步发送队列中的数据帧"""
+			while not stop_flag:
+				try:
+					processed_t = await asyncio.wait_for(send_queue.get(), timeout=5)
+					if processed_t is None:
+						break  # 若接收到 None，跳出循环
+					# 创建完整数据包
+					data_content = (
+						struct.pack('!I', processed_t['frameIndex']) +
+						struct.pack('!I', processed_t['width']) +
+						struct.pack('!I', processed_t['height']) +
+						struct.pack('!I', processed_t['length']) + processed_t['data']
+					)
+
+					packet_t = struct.pack('!II', 1, len(data_content)) + data_content
+					checksum_t = zlib.crc32(data_content) & 0xFFFFFFFF
+					packet_t += struct.pack('!Q', checksum_t)
+
+					# 发送处理结果
+					s_t = time.time()
+					# for i in range(0, len(packet_t), MAX_CHUNK_SIZE):
+					# 	chunk = packet_t[i:i + MAX_CHUNK_SIZE]
+					# 	await websocket.send_bytes(chunk)
+					await websocket.send_bytes(packet_t)
+					e_t = time.time()
+					total = e_t - processed_t['start']
+					logger.info(
+						f"Sent frame, index: {processed_t['frameIndex']}, w*h: {processed_t['width']}x{processed_t['height']},"
+						f"length: {processed_t['length']}, format: {str(processed_t['format'])}, send time: {e_t - s_t}, total time: {total}",
+						__name__)
+					send_queue.task_done()
+				# await asyncio.sleep(0.01)  # 添加小延时缓解缓冲区负载
+				except asyncio.TimeoutError:
+					# logger.debug(f"send_loop exit: timeout", __name__)
+					continue
+				except WebSocketDisconnect:
+					# logger.debug(f"send_loop exit: disconnect", __name__)
+					break
+				except Exception:
+					traceback.print_exc()
+					# logger.debug(f"send_loop exit: exception", __name__)
+					break
+			logger.info(f"send_loop exit", __name__)
+
+		# 启动发送循环
+		send_task = asyncio.create_task(send_loop())
 
 		# 设置初始参数
 		background_frame = None
@@ -435,10 +487,8 @@ def create_app():
 		try:
 			while True:
 				# 检查是否有按顺序完成的结果可以返回
-				for key, value in results.items():
-					if not value.done():
-						break
-					processed_t = await asyncio.wrap_future(results[key])
+				while next_id_to_send in results and results[next_id_to_send].done():
+					processed_t = await asyncio.wrap_future(results[next_id_to_send])
 					# 移除已发送的结果，并更新下一个待发送的帧编号
 					del results[next_id_to_send]
 					next_id_to_send += 1
@@ -620,12 +670,17 @@ def create_app():
 
 		except WebSocketDisconnect as e:
 			logger.info(f"WebSocket disconnected: {e.code}", __name__)
+			stop_flag = True
+			await send_queue.put(None)
+			await send_task
 		except Exception as e:
-			await websocket.close()
 			traceback.print_exc()
 			logger.error(f"Error in WebSocket connection: {e}", __name__)
 		finally:
-			logger.info(f"webSocket exit", __name__)
+			if not stop_flag:
+				logger.info(f"webSocket exit", __name__)
+				await websocket.close()
+
 	return app
 
 
