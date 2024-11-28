@@ -435,9 +435,10 @@ def create_app():
 		try:
 			while True:
 				# 检查是否有按顺序完成的结果可以返回
-				for frame_index in sorted(results.keys()):  # 按顺序遍历帧
+				for frame_index, future in list(results.items()):  # 按顺序遍历帧
 					future = results[frame_index]
 					if not future.done():
+						logger.debug(f"Frame {frame_index} not ready yet", __name__)
 						break
 					processed_t = await asyncio.wrap_future(results[frame_index])
 					# 移除已发送的结果，并更新下一个待发送的帧编号
