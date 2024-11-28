@@ -435,12 +435,13 @@ def create_app():
 		try:
 			while True:
 				# 检查是否有按顺序完成的结果可以返回
-				for key, value in results.items():
-					if not value.done():
+				for frame_index in sorted(results.keys()):  # 按顺序遍历帧
+					future = results[frame_index]
+					if not future.done():
 						break
-					processed_t = await asyncio.wrap_future(results[key])
+					processed_t = await asyncio.wrap_future(results[frame_index])
 					# 移除已发送的结果，并更新下一个待发送的帧编号
-					del results[key]
+					del results[frame_index]
 					# await send_queue.put(processed_t)
 
 					# 发送处理结果
