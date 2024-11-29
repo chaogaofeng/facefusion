@@ -624,6 +624,8 @@ def create_app():
 			traceback.print_exc()
 			logger.error(f"Error in WebSocket connection: {e}", __name__)
 		finally:
+			for frame_index, future in list(results.items()):
+				future.cancel()
 			logger.info(f"webSocket exit", __name__)
 	return app
 
