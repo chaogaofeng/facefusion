@@ -578,8 +578,8 @@ def create_app():
 
 						timestamp = struct.unpack('!Q', content[offset:offset + 8])[0]
 						offset += 8
-						if not diff_time:
-							diff_time = start-timestamp/1000
+						if diff_time is None:
+							diff_time = (start-timestamp/1000)
 
 						compressed_length = struct.unpack('!I', content[offset:offset + 4])[0]
 						offset += 4
@@ -610,7 +610,7 @@ def create_app():
 							offset += image_data_length
 
 						logger.info(f"Received frame, index: {frame_index}, w*h: {width}x{height},"
-									f"length: {image_data_length}, format: {str(format_type)}, diff time: {start-timestamp/1000 - diff_time}  unpack time: {time.time() - start} compress: {compressed} ",__name__)
+									f"length: {image_data_length}, format: {str(format_type)}, diff time: {(start-timestamp/1000) - diff_time}  unpack time: {time.time() - start} compress: {compressed} ",__name__)
 
 						if image_data_length == 0:
 							continue
