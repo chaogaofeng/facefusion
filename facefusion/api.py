@@ -449,6 +449,7 @@ def create_app():
 					s_t = time.time()
 					data_content = (
 						struct.pack('!I', processed_t['frameIndex']) +
+						struct.pack('!I', int(s_t)) +
 						struct.pack('!I', processed_t['width']) +
 						struct.pack('!I', processed_t['height']) +
 						struct.pack('!I', processed_t['length']) + processed_t['data']
@@ -574,6 +575,15 @@ def create_app():
 						frame_index = struct.unpack('!I', content[offset:offset + 4])[0]
 						offset += 4
 
+						timestamp = struct.unpack('!I', content[offset:offset + 4])[0]
+						offset += 4
+
+						compressed_length = struct.unpack('!I', content[offset:offset + 4])[0]
+						offset += 4
+
+						compressed = content[offset:offset + compressed_length].decode('utf-8')
+						offset += compressed_length
+
 						format_data_length = struct.unpack('!I', content[offset:offset + 4])[0]
 						offset += 4
 
@@ -597,8 +607,7 @@ def create_app():
 							offset += image_data_length
 
 						logger.info(f"Received frame, index: {frame_index}, w*h: {width}x{height},"
-									f"length: {image_data_length}, format: {str(format_type)}, time: {time.time() - start} ",
-									__name__)
+									f"length: {image_data_length}, format: {str(format_type)}, diff time: {start-timestamp}  unpack time: {time.time() - start} ",__name__)
 
 						if image_data_length == 0:
 							continue
@@ -627,6 +636,7 @@ def create_app():
 			for frame_index, future in list(results.items()):
 				future.cancel()
 			logger.info(f"webSocket exit", __name__)
+
 	return app
 
 
