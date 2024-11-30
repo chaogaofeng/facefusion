@@ -449,7 +449,7 @@ def create_app():
 					s_t = time.time()
 					data_content = (
 						struct.pack('!I', processed_t['frameIndex']) +
-						struct.pack('!I', int(s_t)) +
+						struct.pack('!Q', int(s_t * 1000)) +
 						struct.pack('!I', processed_t['width']) +
 						struct.pack('!I', processed_t['height']) +
 						struct.pack('!I', processed_t['length']) + processed_t['data']
@@ -575,8 +575,8 @@ def create_app():
 						frame_index = struct.unpack('!I', content[offset:offset + 4])[0]
 						offset += 4
 
-						timestamp = struct.unpack('!I', content[offset:offset + 4])[0]
-						offset += 4
+						timestamp = struct.unpack('!Q', content[offset:offset + 8])[0]
+						offset += 8
 
 						compressed_length = struct.unpack('!I', content[offset:offset + 4])[0]
 						offset += 4
@@ -607,7 +607,7 @@ def create_app():
 							offset += image_data_length
 
 						logger.info(f"Received frame, index: {frame_index}, w*h: {width}x{height},"
-									f"length: {image_data_length}, format: {str(format_type)}, diff time: {start-timestamp}  unpack time: {time.time() - start} compress: {compressed} ",__name__)
+									f"length: {image_data_length}, format: {str(format_type)}, diff time: {start-timestamp/1000}  unpack time: {time.time() - start} compress: {compressed} ",__name__)
 
 						if image_data_length == 0:
 							continue

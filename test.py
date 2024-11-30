@@ -59,7 +59,7 @@ async def send_camera_frame(websocket, frame_index, h265_stream, width, height):
 		struct.pack('!I', len(device_id_bytes)) + device_id_bytes +
 		struct.pack('!I', len(user_bytes)) + user_bytes +
 		struct.pack('!I', frame_index) +  # frame index
-		struct.pack('!I', int(time.time())) +  # frame index
+		struct.pack('!Q', int(time.time()*1000)) +  # frame index
 		struct.pack('!I', len(compress_bytes)) + compress_bytes +
 		struct.pack('!I', len(format_bytes)) + format_bytes +
 		struct.pack('!I', width) +  # width
@@ -93,8 +93,8 @@ async def receive_frame(websocket):
 			offset = 0
 			frame_index = struct.unpack('!I', data[offset:offset + 4])[0]
 			offset += 4
-			timestamp = struct.unpack('!I', data[offset:offset + 4])[0]
-			offset += 4
+			timestamp = struct.unpack('!Q', data[offset:offset + 8])[0]
+			offset += 8
 			width = struct.unpack('!I', data[offset:offset + 4])[0]
 			offset += 4
 			height = struct.unpack('!I', data[offset:offset + 4])[0]
@@ -103,7 +103,7 @@ async def receive_frame(websocket):
 			offset += 4
 			image_data = data[offset:offset + image_len]
 
-			print(f"Recv Frame index: {frame_index}, diff {time.time() - timestamp}")
+			print(f"Recv Frame index: {frame_index}, diff {time.time() - timestamp/1000}")
 
 			# Save the received frame to disk
 			# frame_image = cv2.imdecode(np.frombuffer(image_data, np.uint8), cv2.IMREAD_COLOR)
