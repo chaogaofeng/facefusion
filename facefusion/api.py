@@ -607,7 +607,7 @@ def create_app():
 							offset += image_data_length
 
 						logger.info(f"Received frame, index: {frame_index}, w*h: {width}x{height},"
-									f"length: {image_data_length}, format: {str(format_type)}, diff time: {start-timestamp}  unpack time: {time.time() - start} ",__name__)
+									f"length: {image_data_length}, format: {str(format_type)}, diff time: {start-timestamp}  unpack time: {time.time() - start} compress: {compressed} ",__name__)
 
 						if image_data_length == 0:
 							continue
