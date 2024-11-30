@@ -194,7 +194,7 @@ async def main():
 			# h265_stream = ffmpeg_process.stdout.read()
 
 			h265_stream = encode_h265(yuv_frame.tobytes(), width, height)
-			print(f"encode: {h265_stream}")
+			print(f"encode: {len(h265_stream)}")
 
 			frameIndex += 1
 			t = time.time()
