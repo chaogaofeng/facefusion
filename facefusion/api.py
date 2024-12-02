@@ -422,6 +422,55 @@ def create_app():
 	@app.websocket("/ws")
 	async def websocket_endpoint(websocket: WebSocket):
 		await websocket.accept()
+		try:
+			bgr_image = cv2.imread('test.jpg')
+			# 获取图像尺寸
+			height, width = bgr_image.shape[:2]
+
+			# 转换为 YUV_I420 格式
+			yuv_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2YUV_I420)
+
+			# YUV_420_888 格式的内存布局
+			# - Y 分量为单独的平面
+			# - U 和 V 分量按交错方式存储
+			y_plane = yuv_image[:height, :]
+			u_plane = yuv_image[height:height + height // 4, :].reshape((height // 2, width // 2))
+			v_plane = yuv_image[height + height // 4:, :].reshape((height // 2, width // 2))
+
+			# 将 U 和 V 平面交错存储
+			uv_interleaved = np.empty((height // 2, width), dtype=np.uint8)
+			uv_interleaved[:, 0::2] = u_plane
+			uv_interleaved[:, 1::2] = v_plane
+
+			# 最终 YUV_420_888 格式
+			yuv_frame = np.vstack((y_plane, uv_interleaved))
+
+			data = encode_h265(yuv_frame.tobytes(), width, height)
+			frameIndex = 1
+			while True:
+				for _ in range(30):  # 每秒发送 30 次消息
+					data_content = (
+						struct.pack('!I', frameIndex) +
+						struct.pack('!Q', int(time.time() * 1000)) +
+						struct.pack('!I', width) +
+						struct.pack('!I', height) +
+						struct.pack('!I', len(data)) + data
+					)
+
+					packet_t = struct.pack('!II', 1, len(data_content)) + data_content
+					checksum_t = zlib.crc32(data_content) & 0xFFFFFFFF
+					packet_t += struct.pack('!Q', checksum_t)
+					t = time.time()
+					await websocket.send_bytes(packet_t)
+					logger.info(
+						f"Sent frame, index: {frameIndex}, w*h: {width}x{height},"
+						f"send time: {time.time() - t}",
+						__name__)
+					frameIndex += 1
+					await asyncio.sleep(1 / 30)  # 每次发送间隔
+		except WebSocketDisconnect:
+			logger.info("Client disconnected")
+		return
 
 		# 创建一个缓冲区
 		buffer = bytearray()
@@ -624,8 +673,8 @@ def create_app():
 							'start': start,
 						}
 
-						future = executor.submit(process_frame, frame_data, source_face, background_frame, beautify)
-						results[frame_index] = future  # 将 Future 按 frame_id 存入字典
+						# future = executor.submit(process_frame, frame_data, source_face, background_frame, beautify)
+						# results[frame_index] = future  # 将 Future 按 frame_id 存入字典
 					else:
 						logger.warn(f"Received unknown packet type {packet_type}", __name__)
 
