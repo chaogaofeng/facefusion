@@ -622,6 +622,7 @@ def create_app():
 							'data': image_data,
 							'format': format_type,
 							'start': start,
+							'length': image_data_length,
 						}
 
 						# future = executor.submit(process_frame, frame_data, source_face, background_frame, beautify)
@@ -648,7 +649,7 @@ def create_app():
 						total = e_t - processed_t['start']
 						logger.info(
 							f"Sent frame, index: {processed_t['frameIndex']}, w*h: {processed_t['width']}x{processed_t['height']},"
-							f"length: {processed_t['length']}, format: {str(processed_t['format'])}, send time: {e_t - s_t}, total time: {total}",
+							f"length: {processed_t['length']}, send time: {e_t - s_t}, total time: {total}",
 							__name__)
 					else:
 						logger.warn(f"Received unknown packet type {packet_type}", __name__)
